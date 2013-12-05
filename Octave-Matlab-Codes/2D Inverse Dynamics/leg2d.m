@@ -8,6 +8,8 @@ function [angles, velocities, moments, forces] = leg2d(times, mocapdata, fpdata,
 %	times (Nsamples x 1)		Time stamps for raw data
 %	mocapdata (Nsamples x 12)	Mocap data: x and y coordinates of 6 markers (m)
 %	fpdata (Nsamples x 3)		Load applied to foot: Fx, Fy, and Mz (N/kg, normalized to body mass)
+%	options (structure)			Various settings used in the analysis
+%		options.freq			Cutoff frequency of low pass filter (in Hz)
 %
 % Outputs:
 %	angles (Nsamples x 3)		Angles in three joints (rad)
