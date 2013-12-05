@@ -2,7 +2,7 @@ gaitanalysis Package
 ====================
 
 :mod:`motek` Module
----------------------
+-------------------
 
 .. automodule:: gaitanalysis.motek
     :members:
@@ -10,7 +10,7 @@ gaitanalysis Package
     :show-inheritance:
 
 :mod:`gait` Module
----------------------
+------------------
 
 .. automodule:: gaitanalysis.gait
     :members:
@@ -18,7 +18,7 @@ gaitanalysis Package
     :show-inheritance:
 
 :mod:`controlid` Module
----------------------
+-----------------------
 
 .. automodule:: gaitanalysis.controlid
     :members:
