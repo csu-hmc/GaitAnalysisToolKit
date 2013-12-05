@@ -1,0 +1,28 @@
+#!/usr/bin/env python
+
+import argparse
+from gaitanalysis.motek import DFlowData
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description="Clean up D-Flow files.")
+
+    parser.add_argument('-m', '--mocapfile', type=str,
+        help="The path to a D-Flow mocap module output file.", default=None)
+
+    parser.add_argument('-r', '--recordfile', type=str,
+        help="The path to a D-Flow record module output file.", default=None)
+
+    parser.add_argument('-y', '--metadatafile', type=str,
+        help="The path to a meta data yaml file.", default=None)
+
+    parser.add_argument('outputfile', type=str,
+                        help="The path to the output file.")
+
+    args = parser.parse_args()
+
+    data = DFlowData(mocap_tsv_path=args.mocapfile,
+                     record_tsv_path=args.recordfile,
+                     meta_yml_path=args.metadatafile)
+    data.clean_data()
+    data.write_dflow_tsv(args.outputfile)
