@@ -69,8 +69,9 @@ Run the tests with nose::
 Vagrant
 =======
 
-A vagrant file and provisioning script are included to test the code on an
-Ubuntu 13.10 box. To load the box and run the tests simply type::
+A vagrant file and provisioning script are included to test the code on both a
+Ubuntu 12.04 and Ubuntu 13.10 box. To load the box and run the tests simply
+type::
 
   $ vagrant up
 
@@ -108,6 +109,12 @@ in these steps:
 10. Make sure all tests pass on Travis and have an author review and merge your
     pull request.
 11. Delete the branches on your local machine and on your Github repo, ``git branch -d my-branch && git push origin :my-branch``.
+
+- The master branch on Github should always pass all tests. Do not merge
+  contributions into master unless tests are passing.
+- In general, do not commit changes to your local master branch, always pull in
+  the latest changes from the master branch with ``git pull upstream master``
+  then checkout a new branch for your changes.
 
 Release Notes
 =============
