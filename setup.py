@@ -3,7 +3,7 @@
 
 from setuptools import setup, find_packages
 
-from dtk import __version__
+from gaitanalysis import __version__
 
 description = "Various tools for gait analysis used at the Cleveland State University Human Motion and Control Lab."
 
