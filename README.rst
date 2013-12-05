@@ -6,6 +6,9 @@ specific to the needs of the Human Motion and Control Lab at Cleveland State
 University but other portions may have potential for general use. It is
 relatively modular so you can use what you want.
 
+.. image:: https://travis-ci.org/csu-hmc/Gait-Analysis-Toolkit.png?branch=master
+   :target: http://travis-ci.org/csu-hmc/Gait-Analysis-Toolkit
+
 Modules
 =======
 
