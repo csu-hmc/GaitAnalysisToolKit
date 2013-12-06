@@ -161,7 +161,8 @@ Analog Channels
 
       The EMG/Acceleromter channels are 72 milliseconds behind the force plate
       measurements. There may be other delays present too that may or may not
-      be taken care of in Cortex or D-Flow.
+      be taken care of in Cortex or D-Flow. The lag of the EMG/Accelerometers
+      is due to the wireless communication.
 
 Human Body Model
    The mocap TSV file can also contain joint angles [degrees], joint moments
