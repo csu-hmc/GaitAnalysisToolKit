@@ -268,8 +268,40 @@ class DFlowData(object):
     def _extract_events_from_record_file(self):
         """Returns a dictionary of events and times from the record file
         and/or meta data file."""
-        pass
-
+        
+        f=open(self.record_tsv_path,'r')
+        filecontents=f.readlines()
+        f.close()
+        end=filecontents[-6]
+        end_value=end.split()
+        end_value1=end_value[0]
+        end_time=float(end_value1)
+        
+        if 'EVENT' in ''.join(filecontents):
+            event_time1=[]
+            event_labels=[]
+            for i in range(len(filecontents)):
+                if 'COUNT' in filecontents[i]:
+                    event_labels.append(filecontents[i].split(' ')[2])
+                    event=filecontents[i-2]
+                    event_data=event.split()
+                    event_time1.append(float(event_data[0]))
+        else: return
+        
+        event_time1.append(end_time)
+        self.events={}
+        
+        for i,label in enumerate(event_labels):
+            self.events[label]=(event_time1[i],event_time1[i+1])
+                        
+        if self.meta_yml_path is not None:
+            if 'event' in self.meta:
+                new_events={}
+                event_dictionary=self.meta['event']
+                for key,value in event_dictionary.items():
+                    new_events[value]=self.events[key]
+                self.events=new_events                    
+            
     def _load_record_data(self):
         """Returns a data frame containing the data from the record
         module."""
