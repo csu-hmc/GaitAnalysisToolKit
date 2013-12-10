@@ -76,13 +76,6 @@ class TestDFlowData():
                  'events': {'A': 'Zeroing',
                             'B': 'Walking',
                             'C': 'Relaxing'},
-                 'units': {
-                     '.*\.Pos[XYZ]$': 'meters',
-                     '^[LR]_.*': 'newtons',
-                     '.*\.Mom$': 'newton-meters',
-                     '.*\.Ang$': 'degrees',
-                     '.*\.Pow$': 'watts'
-                     },
                  'analog-channel-names': {
                     "Channel1.Anlg": "F1Y1",
                     "Channel2.Anlg": "F1Y2",

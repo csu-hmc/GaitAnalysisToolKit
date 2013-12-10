@@ -1,7 +1,7 @@
 function [comp_fp]=inertial_compensation(fpdata_cal,acceldata_cal,...
                                          marker_cor,fpdata_cor,...
-                                          acceldata_cor) 
-                                      
+                                         acceldata_cor)
+
 %=========================================================================
 %FUNCTION inertial_compensation:
 %   1)Compensates for the inertia of a moving instrumented treadmill, 
@@ -18,28 +18,26 @@ function [comp_fp]=inertial_compensation(fpdata_cal,acceldata_cal,...
 %Inputs:
 %--------
 %  ~~Unweighted Treadmill (Calibration)~~
-%      time_cal      (Nsamples x 1)    Time stamps
 %      fpdata_cal    (Nsamples x 12)   3D force plate data (forces/moments)
 %                                      for both force plates in the form:
 %                                      [FP1XYZ MP1XYZ FP2XYZ MP2XYZ]
-%      acceldata_cal (Nsamples x 12)   3D accelerations from 4 
+%      acceldata_cal (Nsamples x 12)   3D accelerations from 4
 %                                      accelerometers in the form:
 %                                      [A1XYZ A2XYZ A3XYZ A4XYZ]
 %  ~~Weighted Treadmill (Correction)~~
-%      time_cor      (Nsamples x 1)    Time stamps
 %      marker_cor    (Nsamples x 15)   XYZ positions of 5 reference plane
 %                                      markers
 %      fpdata_cor    (Nsamples x 12)   3D force plate data (forces/moments)
-%                                      for both force plates in the form: 
+%                                      for both force plates in the form:
 %                                      [FP1XYZ MP1XYZ FP2XYZ MP2XYZ]
-%      acceldata_cor (Nsamples x 12)   3D accelerations from 4 
+%      acceldata_cor (Nsamples x 12)   3D accelerations from 4
 %                                      accelerometers in the form:
 %                                      [A1XYZ A2XYZ A3XYZ A4XYZ]
 %--------
 %Outputs:
 %--------
-%      comp_fp       (Nsamples x 12)   Compensated 3D force plate data 
-%                                      (forces/moments) for both force 
+%      comp_fp       (Nsamples x 12)   Compensated 3D force plate data
+%                                      (forces/moments) for both force
 %                                       plates in the form:
 %                                      [FP1XYZ MP1XYZ FP2XYZ MP2XYZ]
 %=========================================================================
@@ -66,7 +64,7 @@ Nframes2=p(1,1);
                D(row,col)=acceldata_cal(i,:);
             end
          end
-         
+
 %----------------------------------------------------------------------
 %Force Matrix (B)Generation
 %----------------------------------------------------------------------
@@ -77,7 +75,7 @@ Nframes2=p(1,1);
     %Reshaping for Least Squares
         B1=reshape(fpdata_cal1',6*Nframes2,1);
         B2=reshape(fpdata_cal2',6*Nframes2,1);
-        
+
 %----------------------------------------------------------------------
 %Creating the Coefficients of the Correction Matrices (FP1/FP2)
 %----------------------------------------------------------------------
@@ -103,7 +101,7 @@ C2=D\B2;
                D(row,col)=acceldata_cor(i,:);
             end
          end
-         
+
 %----------------------------------------------------------------------
 %Force Matrix (B)Generation
 %----------------------------------------------------------------------
@@ -124,7 +122,7 @@ C2=D\B2;
         B1cr=reshape(B1c,6,Nframes2);
         B2c=B2-(D*C2);
         B2cr=reshape(B2c,6,Nframes2);
-        
+
 %=======================================================================
 %3. COORDINATE TRANSFORMATION Rotating Force Vectors to Reference Frame
 %=======================================================================
@@ -173,5 +171,5 @@ C2=D\B2;
     MP2=reshape(MP2,3,Nframes2)';
 %Compensated Forces
     comp_fp=[FP1 MP1 FP2 MP2];
-    
-end 
+
+end

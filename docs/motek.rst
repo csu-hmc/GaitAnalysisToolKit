@@ -233,6 +233,16 @@ a reduced set of markers. So if you playback recordings which have missing
 markers stored as constant values in D-Flow, you will likely get incorrect
 inverse dynamics.
 
+Time Delays
+~~~~~~~~~~~
+
+There are time delays between the camera marker data, force plate analog
+signals, and the wireless EMG/Accelerometers. The documentation for the Delsys
+wireless system explicity states that there is a 96ms delay in the data with
+respect to the analog signals that are sample from the unit which is due to the
+wireless data transfer. There is also an measurable delay in the camera data
+with respect to the analog data which seems to hover around 7 ms.
+
 Other
 ~~~~~
 
@@ -394,6 +404,7 @@ There are some standard meta data that should be collected with every trial.
    hardware-settings:
        high-performance: True/False
    files:
+       compensation: ../T002/mocap-module-002.txt
        - mocap-module-01.txt
        - record-module-01.txt
        - cortex-01.cap

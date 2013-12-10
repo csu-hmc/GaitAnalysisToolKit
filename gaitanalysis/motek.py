@@ -10,6 +10,7 @@ import pandas
 from scipy.interpolate import InterpolatedUnivariateSpline
 import yaml
 from dtk import process
+from oct2py import octave
 
 # debugging
 try:
@@ -24,23 +25,56 @@ class DFlowData(object):
     """A class to store and manipulate the data outputs from Motek Medical's
     D-Flow software."""
 
-    coordinate_labels = ['X', 'Y', 'Z']
-    marker_coordinate_suffixes = ['.Pos' + c for c in coordinate_labels]
+    marker_coordinate_suffixes = ['.Pos' + _c for _c in ['X', 'Y', 'Z']]
     marker_coordinate_regex = '.*\.Pos[XYZ]$'
-    hbm_column_regexes = ['^[LR]_.*', '.*\.Mom$', '.*\.Ang$', '.*\.Pow$']
-    # TODO: There are also .Rot[XYZ] and .COM.X values. Need to determine
-    # what they are.
+
+    hbm_column_regexes = ['^[LR]_.*', '.*\.Mom$', '.*\.Ang$', '.*\.Pow$',
+                          '.*\.COM.[XYZ]$']
+
     force_plate_names = ['FP1', 'FP2']  # FP1 : left, FP2 : right
-    force_plate_suffix = [suffix_beg + end for end in coordinate_labels for
-                          suffix_beg in ['.For', '.Mom', '.Cop']]
+    force_plate_suffix = [_suffix_beg + _end for _end in ['X', 'Y', 'Z'] for
+                          _suffix_beg in ['.For', '.Mom', '.Cop']]
+
+    # TODO: There are surely more segment names for the full body. Need to
+    # get those.
+    dflow_segments = ['pelvis', 'thorax', 'spine', 'pelvislegs', 'lfemur',
+                      'ltibia', 'lfoot', 'toes', 'rfemur', 'rtibia',
+                      'rfoot', 'rtoes']
+
+    rotation_suffixes = ['.Rot' + c for c in ['X', 'Y', 'Z']]
+    segment_labels = [_segment + _suffix for _segment in dflow_segments for
+                      _suffix in marker_coordinate_suffixes +
+                      rotation_suffixes]
 
     cortex_sample_rate = 100  # Hz
-    constant_marker_tolerance = 1e-16
+    constant_marker_tolerance = 1e-16  # meters
+    delsys_time_delay = 0.096  # ms
     hbm_na = ['0.000000', '-0.000000']
 
     def __init__(self, mocap_tsv_path=None, record_tsv_path=None,
                  meta_yml_path=None):
-        """Sets the data file paths."""
+        """Sets the data file paths, loads the meta data, if present, and
+        generates lists of the columns in the mocap and record files.
+
+        Parameters
+        ----------
+        mocap_tsv_path : string, optional, default=None
+            The path to a tab delimited file generated from D-Flow's mocap
+            module.
+        record_tsv_path : string, optional, default=None
+            The path to a tab delimited file generated from D-Flow's record
+            module.
+        meta_yml_path : string, optional, default=None
+            The path to a yaml file.
+
+        Notes
+        -----
+        You must supply at least either a mocap or record file. If you
+        supply both, they should be from the same run. The meta data file is
+        always optional, but without it some class methods or options will
+        be disabled.
+
+        """
 
         if mocap_tsv_path is None and record_tsv_path is None:
             raise ValueError("You must supply at least a D-Flow mocap file "
@@ -73,10 +107,44 @@ class DFlowData(object):
 
         return meta
 
+    def _compensation_needed(self):
+        """Returns true if the """
+
+        # TODO : Check to see if a compensation is needed and store the
+        # file.
+
+        if self.meta['trial']['stationary-platform'] is False:
+            return True
+        else:
+            return False
+
+    def _store_compensation_unlodaed_data_path(self):
+        """Stores the path to the compensation data file."""
+
+        trial_directory = (os.path.split(self.mocap_tsv_path)[0] or
+                            os.path.split(self.record_tsv_path)[0])
+
+        self.compensation_tsv_path = os.path.join(trial_directory,
+                                                  self.meta['files']['compensation'])
+
+    def _load_compensation_data(self):
+        """Returns a data frame with the compensation data."""
+        self._force_column_labels()
+        pass
+
+    def _get_header_labels(self, path, delimiter='\t'):
+        """Returns the
+
+        with open(self.mocap_tsv_path, 'r') as f:
+            mocap_column_labels = f.readline().strip().split('\t')
+
+        return mocap_column_labels
+
     def _mocap_column_labels(self):
-        """Retruns a list of strings containing the motion capture file's
-        column labels.  The list is in the same order as in the mocap tsv
+        """Returns a list of strings containing the motion capture file's
+        column labels. The list is in the same order as in the mocap tsv
         file."""
+
         with open(self.mocap_tsv_path, 'r') as f:
             mocap_column_labels = f.readline().strip().split('\t')
 
@@ -104,7 +172,7 @@ class DFlowData(object):
 
         marker_labels = []
         for i, label in enumerate(labels):
-            if reg_exp.match(label):
+            if reg_exp.match(label) and label not in self.segment_labels:
                 marker_labels.append(label)
 
         return marker_labels
@@ -149,28 +217,55 @@ class DFlowData(object):
 
         return hbm_labels, hbm_indices, non_hbm_indices
 
+    def _force_column_labels(self):
+        """Returns a list of force column labels."""
+
+        return [side + suffix for side in self.force_plate_names for suffix
+                in self.force_plate_columns]
+
     def _identify_missing_markers(self, data_frame):
-        """Returns the data frame in which all marker columns (ends with
-        '.PosX', '.PosY', '.PosZ') have had constant marker values replaced
-        with NaN."""
+        """Returns the data frame in which all marker columns have had
+        constant marker values replaced with NaN.
+
+        Parameters
+        ----------
+        data_frame : pandas.DataFrame, size(n, m)
+            A data frame which contains columns of marker position time
+            histories. The marker time histories may contain periods of
+            constant values.
+
+        Returns
+        -------
+        data_frame : pandas.DataFrame, size(n, m)
+            The same data frame which was supplied expect that constant
+            values in the marker columns have been replaced with NaN.
+
+        Notes
+        -----
+        D-Flow replaces missing marker values with the last available
+        measurement in time. This method is used to properly replace them
+        with a unique idnetifier, NaN. If two adjacent measurements in time
+        were actually the same value, then this method will replace the
+        subsequent ones with NaNs, and is not correct, but the likelihood of
+        this happening is low.
+
+        """
 
         # For each marker column we need to identify the constants values
         # and replace with NaN, only if the values are constant in all
         # coordinates of a marker.
 
-        # Get a list of all columns that give marker coordinate data, i.e.
-        # ones that end in '.PosX', '.PosY', or '.PosZ'.
-        marker_coordinate_col_names = \
+        marker_column_labels = \
             self._marker_column_labels(self.mocap_column_labels)
 
         # A list of unique markers in the data set (i.e. without the
         # suffixes).
         unique_marker_names = list(set([c.split('.')[0] for c in
-                                        marker_coordinate_col_names]))
+                                        marker_column_labels]))
 
         # Create a boolean array that labels all constant values (wrt to
         # tolerance) as True.
-        are_constant = data_frame[marker_coordinate_col_names].diff().abs() < \
+        are_constant = data_frame[marker_column_labels].diff().abs() < \
             self.constant_marker_tolerance
 
         # Now make sure that the marker is constant in all three
@@ -233,6 +328,21 @@ class DFlowData(object):
 
         return data_frame
 
+    def _shift_delsys_signals(self, data_frame):
+        """Returns a data frame with delsys wireless signals shifted in time
+        forward by 96 ms.
+
+        Notes
+        -----
+        The Delsys wireless EMG/Accelermeters have a 96ms lag with respect
+        to the another analog channels that are sampled by the National
+        Instruments DAQ.
+
+        """
+        # TODO : implement this time shift function
+        new_time = data_frame['TimeStamp'] - self.delsys_time_delay
+        return data_frame
+
     def _load_mocap_data(self, ignore_hbm=False, id_hbm_na=False):
         """Returns a data frame generated from the tsv mocap file.
 
@@ -245,6 +355,10 @@ class DFlowData(object):
             If true and `ignore_hbm` is false, then the HBM columns will be
             loaded with all '0.000000' and '-0.000000' strings in the HBM
             columns replaced with NaN.
+
+        Returns
+        -------
+        data_frame : pandas.DataFrame
 
         """
 
@@ -311,7 +425,9 @@ class DFlowData(object):
         # The record module file is tab delimited and may have events
         # interspersed in between the rows which are commenting out by
         # hashes. We must dropna to remove commented lines from the
-        # resutling data frame, only if all values in a row are NA.
+        # resutling data frame, only if all values in a row are NA. The
+        # comment keyword argument only ingores comments at the end of each
+        # line, not comments that take up an entire line.
         return pandas.read_csv(self.record_tsv_path, delimiter='\t',
                                comment='#').dropna(how='all').reset_index(drop=True)
 
@@ -359,18 +475,71 @@ class DFlowData(object):
 
         return pandas.DataFrame(new_record)
 
-    def _compensate_forces(self):
+    def _compensate_forces(self, calibration_data_frame, data_frame):
         """Computes the forces and moments which are due to the lateral and
         pitching motions of the treadmill and subtracts them from the
         measured forces and moments based on linear acceleration
         measurements of the treadmill."""
+
         # If you accelerate the treadmill there will be forces and moments
         # measured by the force plates that simply come from the motion.
         # When external loads are applied to the force plates, you must
         # subtract these inertial forces from the measured forces to get
         # correct estimates of the body fixed externally applied forces.
         # TODO : Implement this.
-        raise NotImplementedError()
+
+        octave.addpath(os.path.join(__file__, '..', 'Octave-Matlab-Codes',
+                                    'Inertial-Compensation',
+                                    'inertial_compensation.m'))
+
+        forces = ['FP1.ForX', 'FP1.ForY', 'FP1.ForZ', 'FP1.MomX',
+                  'FP1.MomY', 'FP1.MomZ', 'FP1.ForX', 'FP1.ForY',
+                  'FP1.ForZ', 'FP1.MomX', 'FP1.MomY', 'FP1.MomZ']
+
+        # TODO : These markers should come from the meta data and not be
+        # hard coded here.
+
+        treadmill_markers = \
+            ['ROT_REF.PosX'
+             'ROT_REF.PosY'
+             'ROT_REF.PosZ'
+             'ROT_C1.PosX'
+             'ROT_C1.PosY'
+             'ROT_C1.PosZ'
+             'ROT_C2.PosX'
+             'ROT_C2.PosY'
+             'ROT_C2.PosZ'
+             'ROT_C3.PosX'
+             'ROT_C3.PosY'
+             'ROT_C3.PosZ'
+             'ROT_C4.PosX'
+             'ROT_C4.PosY'
+             'ROT_C4.PosZ']
+
+        # TODO : The accelerometer names should come from the meta data and
+        # not be hard coded here.
+
+        accelerometers = ['Channel14.Anlg', 'Channel15.Anlg', 'Channel16.Anlg',
+                          'Channel18.Anlg', 'Channel19.Anlg', 'Channel20.Anlg',
+                          'Channel22.Anlg', 'Channel23.Anlg', 'Channel24.Anlg',
+                          'Channel26.Anlg', 'Channel27.Anlg', 'Channel28.Anlg']
+
+        # TODO : The forces should be filtered before passing into this #
+        # function.
+
+        # TODO : The time delays for the Delsys system should be compensated
+        # for before passing to this function.
+
+        compensated_forces = \
+            octave.inertial_compensation(calibration_data_frame[forces].values,
+                                         calibration_data_frame[forces].values,
+                                         data_frame[treadmill_markers].values,
+                                         data_frame[forces].values,
+                                         data_frame[accelerometers].values)
+
+        data_frame[forces] = compensated_forces
+
+        return data_frame
 
     def _express_forces_in_treadmill_reference_frame(self):
         """Re-expresses the forces and moments measured by the treadmill to
