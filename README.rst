@@ -4,36 +4,53 @@ Introduction
 This is a collection of tools that are helpful for gait analysis. Some are
 specific to the needs of the Human Motion and Control Lab at Cleveland State
 University but other portions may have potential for general use. It is
-relatively modular so you can use what you want.
+relatively modular so you can use what you want. It is primarily structured as
+a Python distribution but the Octave/Matlab files are also accessible
+independently.
 
 .. image:: https://travis-ci.org/csu-hmc/Gait-Analysis-Toolkit.png?branch=master
    :target: http://travis-ci.org/csu-hmc/Gait-Analysis-Toolkit
 
-Modules
-=======
+Python Packages
+===============
+
+gaitanalysis
+------------
 
 **gait**
-   Tools for working with gait data.
+   General tools for working with gait data.
 **motek**
    Tools for processing data from Motek Medical's products, primarily the
    D-Flow software outputs.
 **controlid**
    Tools for identifying control systems in human locomotion.
 
+gaitanalysis/tests
+------------------
+
+**test_gait**
+   Unit tests for the gait module.
+**test_motek**
+   Unit tests for the motek module.
+**test_controlid**
+   Unit tests for the controlid module.
+
 Octave/Matlab Librarys
 ======================
 
-2D Lower Body Inverse Dynamics
+**2D Lower Body Inverse Dynamics**
    Implements joint angle and moment computations of a 2D lower body human.
-Inertial Compensation
+**Inertial Compensation**
    Compensates force plate forces and moments for inertial effects and
    re-expresses the forces and moments in the camera reference frame.
+**soder**
+   Computes the rigid body orientation and location of a group of markers.
 
 Installation
 ============
 
 You will need Python 2.7 and setuptools to install the packages. Its best to
-install the dependencies first (NumPy, SciPy, matplotlib, Pandas).  The SciPy
+install the dependencies first (NumPy, SciPy, matplotlib, Pandas). The SciPy
 Stack instructions are helpful for this: http://www.scipy.org/stackspec.html.
 
 We recommend installing Anaconda_ for users in our lab to get all of the
@@ -41,8 +58,8 @@ dependencies.
 
 .. _Anaconda:: http://docs.continuum.io/anaconda/
 
-We also utilize Octave/Matlab code, so an install of Octave with the toolkits
-is also required. See http://octave.sourceforge.net/index.html for installation
+We also utilize Octave/Matlab code, so an install of Octave with is also
+required. See http://octave.sourceforge.net/index.html for installation
 instructions.
 
 You can install using pip (or easy_install). Pip will theoretically [#]_ get

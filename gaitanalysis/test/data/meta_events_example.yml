@@ -1,6 +1,7 @@
-event:
-    A: ForcePlateZeroing
-    B: NormalWalking
-    C: TreadmillPerturbation
-    D: Both
-    E: Normal
+trial:
+    events:
+        A: ForcePlateZeroing
+        B: NormalWalking
+        C: TreadmillPerturbation
+        D: Both
+        E: Normal
