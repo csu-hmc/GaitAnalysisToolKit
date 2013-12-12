@@ -56,23 +56,71 @@ class TestDFlowData():
     mocap_labels_without_hbm = (['TimeStamp', 'FrameNumber'] +
                                 cortex_marker_labels + cortex_analog_labels)
     mocap_labels_with_hbm = mocap_labels_without_hbm + dflow_hbm_labels
+
+    compesation_treadmill_markers = ['ROT_REF.PosX' 'ROT_REF.PosY'
+                                     'ROT_REF.PosZ' 'ROT_C1.PosX'
+                                     'ROT_C1.PosY' 'ROT_C1.PosZ'
+                                     'ROT_C2.PosX' 'ROT_C2.PosY'
+                                     'ROT_C2.PosZ' 'ROT_C3.PosX'
+                                     'ROT_C3.PosY' 'ROT_C3.PosZ'
+                                     'ROT_C4.PosX' 'ROT_C4.PosY'
+                                     'ROT_C4.PosZ']
+
+    compensation_force_labels = ['FP1.ForX', 'FP1.ForY', 'FP1.ForZ',
+                                 'FP1.MomX', 'FP1.MomY', 'FP1.MomZ',
+                                 'FP1.ForX', 'FP1.ForY', 'FP1.ForZ',
+                                 'FP1.MomX', 'FP1.MomY', 'FP1.MomZ']
+
+    compensation_analog_labels = ["Channel1.Anlg", "Channel2.Anlg",
+                                  "Channel3.Anlg", "Channel4.Anlg",
+                                  "Channel5.Anlg", "Channel6.Anlg",
+                                  "Channel7.Anlg", "Channel8.Anlg",
+                                  "Channel9.Anlg", "Channel10.Anlg",
+                                  "Channel11.Anlg", "Channel12.Anlg",
+                                  "Channel13.Anlg", "Channel14.Anlg",
+                                  "Channel15.Anlg", "Channel16.Anlg",
+                                  "Channel17.Anlg", "Channel18.Anlg",
+                                  "Channel19.Anlg", "Channel20.Anlg",
+                                  "Channel21.Anlg", "Channel22.Anlg",
+                                  "Channel23.Anlg", "Channel24.Anlg",
+                                  "Channel25.Anlg", "Channel26.Anlg",
+                                  "Channel27.Anlg", "Channel28.Anlg"]
+
     record_labels = ['Time', 'RightBeltSpeed', 'LeftBeltSpeed']
 
     path_to_mocap_data_file = 'example_mocap_tsv_file.txt'
     path_to_record_data_file = 'example_record_tsv_file.txt'
     path_to_meta_data_file = 'example_meta_data_file.yml'
+    path_to_compensation_file = 'example_compensation_file.txt'
+
+    #with open(os.path.join(__file__, 'data', 'meta-sample-full.yml'), 'r') as f:
+        #meta_data = yaml.load(f)
 
     meta_data = {'trial': {'id': 5,
-                           'datetime': strptime('2013-10-03', "%Y-%m-%d")},
+                           'datetime': strptime('2013-10-03', "%Y-%m-%d"),
+                           'notes': 'All about this trial.',
+                           'nominal-speed': 5.0,
+                           'nominal-speed-units': 'meters per second',
+                           'stationary-platform': False,
+                           'pitch': False,
+                           'sway': True,
+                           'marker-set': 'lower',
+                           }
                  'subject': {'id': 234,
                              'age': 28,
                              'mass': 70,
-                             'mass-units': 'kilogram'},
+                             'mass-units': 'kilograms',
+                             'height': 1.82,
+                             'height-units': 'meters',
+                             'gender': 'male',
+                             },
                  'study': {'id': 12,
                            'name': 'Human Locomotion Control Identification',
                            'description': 'Perturbations during walking and running.'},
-                 'files': [path_to_mocap_data_file,
-                           path_to_record_data_file],
+                 'files': {'mocap': path_to_mocap_data_file,
+                           'record': path_to_record_data_file,
+                           'meta': path_to_meta_data_file,
+                           'compensation': None},
                  'events': {'A': 'Zeroing',
                             'B': 'Walking',
                             'C': 'Relaxing'},
@@ -170,6 +218,50 @@ class TestDFlowData():
         self.mocap_data_frame.to_csv(self.path_to_mocap_data_file, sep='\t',
                                      float_format='%1.6f', index=False,
                                      cols=self.mocap_labels_with_hbm)
+
+    def create_sample_compensation_file(self):
+
+        # This generates the slightly variable sampling periods seen in the
+        # time stamp column.
+        deviations = (self.dflow_mocap_max_period_deviation *
+                      np.random.uniform(-1.0, 1.0,
+                                        self.cortex_number_of_samples))
+
+        variable_periods = (self.cortex_sample_period *
+                            np.ones(self.cortex_number_of_samples) +
+                            deviations)
+
+        compensation_data = {'TimeStamp': self.dflow_start_time +
+                      np.cumsum(variable_periods),
+                      'FrameNumber': range(self.cortex_start_frame,
+                                           self.cortex_start_frame +
+                                           self.cortex_number_of_samples, 1),
+                      }
+
+        for label in self.compensation_treadmill_marker_labels:
+            compensation_data[label] = np.sin(compensation_data['TimeStamp'])
+
+        for label in self.compensation_analog_labels:
+            compensation_data[label] = np.cos(compensation_data['TimeStamp'])
+
+        for label in self.compensation_force_labels:
+            compensation_data[label] = 0.5 * np.cos(compensation_data['TimeStamp'])
+
+        self.compensation_data_frame = pandas.DataFrame(compensation_data)
+
+        for j, index in enumerate(self.missing_marker_start_indices):
+            for signal in self.compensation_treadmill_markers:
+                self.compensation_data_frame[signal][index:index + self.length_missing[j]] = \
+                    self.compensation_data_frame[signal][index]
+
+        cols = (["TimeStamp", 'FrameNumber'] +
+                self.compensation_treadmill_marker_labels +
+                self.compensation_analog_labels +
+                self.compensation_force_labels)
+
+        self.compensation_data_frame.to_csv(self.path_to_compensation_data_file,
+                                            sep='\t', float_format='%1.6f',
+                                            index=False, cols=cols)
 
     def create_sample_meta_data_file(self):
         """We will have an optional YAML file containing meta data for
@@ -316,6 +408,62 @@ class TestDFlowData():
                                meta_yml_path=self.path_to_meta_data_file)
 
         assert self.meta_data == dflow_data._parse_meta_data_file()
+
+    def test_compensation_needed(self):
+
+        # Default in the example meta file is that compensation is needed.
+        dflow_data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
+                               meta_yml_path=self.path_to_meta_data_file)
+        assert dflow_data._compensation_needed()
+
+        # Test if the platform is specified as stationary.
+        dflow_data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
+                               meta_yml_path=self.path_to_meta_data_file)
+        dflow_data.meta['trial']['stationary-platform'] = True
+        assert not dflow_data._compensation_needed()
+
+        # Test if it wasn't in the meta file at all.
+        dflow_data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
+                               meta_yml_path=self.path_to_meta_data_file)
+        dflow_data.meta['trial'].pop('stationary-platform')
+        assert not dflow_data._compensation_needed()
+
+        # Test if no meta file is provided.
+        dflow_data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file)
+        assert not dflow_data._compensation_needed()
+
+    def test_store_compensation_data_path(self):
+        dflow_data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
+                               meta_yml_path=self.path_to_meta_data_file)
+        dflow_data._store_compensation_data_path()
+        assert dflow_data.compensation_tsv_path == self.meta_data['trial']['files']['compensation']
+
+    def test_load_compensation_data(self):
+        dflow_data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
+                               meta_yml_path=self.path_to_meta_data_file)
+        unloaded_trial = dflow_data._load_compensation_data()
+
+
+        assert len(set(unloaded_trial.columns).diff() == 0
+
+    def test_low_pass_filter(self):
+        time = np.linspace(0.0, 10.0)
+        sample_rate = np.diff(time).mean()
+        low_freq = np.sin(5.0 * 2.0 * np.pi time)
+        high_freq = np.sin(10.0 * 2.0 * np.pi time)
+        df = pandas.DataFrame({'T': time,
+                               'A': low_freq + high_freq,
+                               'B': low_freq,
+                               'C': high_freq,
+                               'D': low_freq + high_freq})
+
+        filtered = DFlowData._low_pass_filter(df, ['A', 'D'], 7.0, sample_rate)
+
+        testing.assert_allclose(time, df['T'].values)
+        testing.assert_allclose(low_freq, df['A'].values)
+        testing.assert_allclose(low_freq, df['B'].values)
+        testing.assert_allclose(high_freq, df['C'].values)
+        testing.assert_allclose(low_freq, df['D'].values)
 
     def test_mocap_column_labels(self):
 

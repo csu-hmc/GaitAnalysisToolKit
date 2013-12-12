@@ -3,6 +3,7 @@
 
 # standard library
 import re
+import os
 
 # external libraries
 import numpy as np
@@ -21,6 +22,83 @@ else:
     set_trace = Tracer()
 
 
+class MissingMarkerIdentifier(object):
+
+    marker_coordinate_suffixes = ['.Pos' + _c for _c in ['X', 'Y', 'Z']]
+
+    constant_marker_tolerance = 1e-16
+
+    def __init__(self, data_frame):
+        """
+
+        Parameters
+        ----------
+        data_frame : pandas.DataFrame, size(n, m)
+            A data frame which contains only columns of marker position time
+            histories. For this class to be useful, the marker time
+            histories should contain periods of constant values.
+
+        """
+        self.data_frame = data_frame
+
+    def identify(self):
+        """Returns the data frame in which all columns have had constant
+        values replaced with NaN.
+
+        Returns
+        -------
+        data_frame : pandas.DataFrame, size(n, m)
+            The same data frame which was supplied expect that constant
+            values have been replaced with NaN.
+
+        Notes
+        -----
+        D-Flow replaces missing marker values with the last available
+        measurement in time. This method is used to properly replace them
+        with a unique identifier, NaN. If two adjacent measurements in time
+        were actually the same value, then this method will replace the
+        subsequent ones with NaNs, and is not correct, but the likelihood of
+        this happening is low.
+
+        """
+
+        # For each marker column we need to identify the constants values
+        # and replace with NaN, only if the values are constant in all
+        # coordinates of a marker.
+
+
+        # A list of unique markers in the data set (i.e. without the
+        # suffixes).
+        unique_marker_names = list(set([c.split('.')[0] for c in
+                                        self.data_frame.columns]))
+
+        # Create a boolean array that labels all constant values (wrt to
+        # tolerance) as True.
+        are_constant = data_frame.diff().abs() < \
+            self.constant_marker_tolerance
+
+        # Now make sure that the marker is constant in all three
+        # coordinates before setting it to NaN.
+        for marker in unique_marker_names:
+            single_marker_cols = [marker + pos for pos in
+                                  self.marker_coordinate_suffixes]
+            for col in single_marker_cols:
+                are_constant[col] = \
+                    are_constant[single_marker_cols].all(axis=1)
+
+        data_frame[are_constant] = np.nan
+
+        return data_frame
+
+    def statistics(self):
+        """Returns # missing markers and max consecutive for each column."""
+
+        # count NaNs in each column
+        stats = self.data_frame.count()
+
+        pass
+
+
 class DFlowData(object):
     """A class to store and manipulate the data outputs from Motek Medical's
     D-Flow software."""
@@ -34,6 +112,8 @@ class DFlowData(object):
     force_plate_names = ['FP1', 'FP2']  # FP1 : left, FP2 : right
     force_plate_suffix = [_suffix_beg + _end for _end in ['X', 'Y', 'Z'] for
                           _suffix_beg in ['.For', '.Mom', '.Cop']]
+    # TODO : Check if this is correct.
+    force_plate_regex = '^FP[12]\.[For|Mom|Cop][XYZ]$'
 
     # TODO: There are surely more segment names for the full body. Need to
     # get those.
@@ -77,6 +157,10 @@ class DFlowData(object):
 
         """
 
+        # TODO : Support passing only a meta data file or directory with a
+        # meta data file, so long at the metadata file has all the files
+        # specified in it.
+
         if mocap_tsv_path is None and record_tsv_path is None:
             raise ValueError("You must supply at least a D-Flow mocap file "
                              + "or a D-Flow record file.")
@@ -109,15 +193,20 @@ class DFlowData(object):
         return meta
 
     def _compensation_needed(self):
-        """Returns true if the """
+        """Returns true if the meta data includes:
 
-        # TODO : Check to see if a compensation is needed and store the
-        # file.
+           'trial: stationary-platform: False'
 
-        # TODO : This field may not be in the meta data.
+        """
 
-        if self.meta['trial']['stationary-platform'] is False:
-            return True
+        if self.meta_yml_path is not None:
+            try:
+                if self.meta['trial']['stationary-platform'] is False:
+                    return True
+                else:
+                    return False
+            except KeyError:
+                return False
         else:
             return False
 
@@ -145,15 +234,16 @@ class DFlowData(object):
 
         try:
             relative_path_to_unloaded_mocap_file = \
-                self.meta['files']['compensation']
+                self.meta['trial']['files']['compensation']
         except KeyError:
-            raise MetaDataError('You must include relative file path to the compensation file in {}.'.format(self.meta_yml_path))
+            raise MetaDataError('You must include relative file path to the ' +
+                                'compensation file in {}.'.format(self.meta_yml_path))
         else:
             self.compensation_tsv_path = \
                 os.path.join(trial_directory,
                              relative_path_to_unloaded_mocap_file)
 
-    def _load_compensation_data(self, fill_na=True):
+    def _load_compensation_data(self):
         """Returns a data frame which includes the treadmill forces/moments,
         accelerometer signals, and the treadmill reference markers as time
         series with respect to the D-Flow time stamp."""
@@ -166,18 +256,26 @@ class DFlowData(object):
             if label in forces + accelerometers + treadmill_reference_markers:
                 indices.append(i)
 
-        unloaded_trial = pandas.read_csv(self.compensation_tsv_path,
-                                         delimiter='\t', usecols=indices)
+        return pandas.read_csv(self.compensation_tsv_path, delimiter='\t',
+                               usecols=indices)
 
+    def _clean_compensation_data(data_frame):
         # missing data should be identified and filled from the marker columns
-        marker_column_labels = self._marker_column_labels(unload_trial.columns)
+        marker_column_labels = self._marker_column_labels(unloaded_trial.columns)
+
         unloaed_trial = self._identify_missing_markers(unloaded_trial,
                                                        marker_column_labels)
+
         unloaded_trial = self._interpolate_missing_markers(unloaded_trial,
                                                            marker_column_labels)
+
         unloaded_trial = self._shift_delsys_signals(unloaded_trial)
 
-        # TODO: Filter the forces?
+
+        unloaded_trial = self._low_pass_filter(unloaded_trial,
+                                               all_columns_except_timestamp,
+                                               self.low_pass_cutoff,
+                                               self.cortex_sample_rate)
 
         return unloaded_trial
 
@@ -214,8 +312,8 @@ class DFlowData(object):
 
     @staticmethod
     def _header_labels(path_to_file, delimiter='\t'):
-        """Returns a list of labels from the header, i.e. first line, of a
-        delimited text file.
+        """Returns a list of labels from the header, i.e. the first line of
+        a delimited text file.
 
         Parameters
         ----------
@@ -324,6 +422,7 @@ class DFlowData(object):
 
         emg_analog_numbers = [4 * n + 13 for n in
                               range(number_delsys_sensors)]
+
         accel_analog_numbers = [4 * n + m + 14 for n in
                                 range(number_delsys_sensors) for m in
                                 range(3)]
@@ -673,16 +772,22 @@ class DFlowData(object):
         # computing the inverse dynamics.
         raise NotImplementedError()
 
-    def clean_data(self):
+    def clean_data(self, interpolate_markers=False):
         """Loads and processes the data."""
 
         if self.mocap_tsv_path is not None:
             raw_mocap_data_frame = self._load_mocap_data(ignore_hbm=True)
-            mocap_data_frame = self._identify_missing_markers(raw_mocap_data_frame)
+            mocap_data_frame = \
+                self._identify_missing_markers(raw_mocap_data_frame)
             mocap_data_frame = \
                 self._generate_cortex_time_stamp(mocap_data_frame)
-            mocap_data_frame = \
-                self._interpolate_missing_markers(mocap_data_frame)
+            if interpolate_markers is True:
+                mocap_data_frame = \
+                    self._interpolate_missing_markers(mocap_data_frame)
+            if self._compensate_forces():
+                unloaded_trial = self._load_compensation_data()
+                mocap_data_frame = self._compensate_forces(unloaded_trial,
+                                                           mocap_data_frame)
             self.mocap_data = mocap_data_frame
 
         if self.record_tsv_path is not None:
