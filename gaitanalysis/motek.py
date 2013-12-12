@@ -48,7 +48,8 @@ class DFlowData(object):
 
     cortex_sample_rate = 100  # Hz
     constant_marker_tolerance = 1e-16  # meters
-    delsys_time_delay = 0.096  # ms
+    low_pass_cutoff = 6.0  # Hz
+    delsys_time_delay = 0.096  # seconds
     hbm_na = ['0.000000', '-0.000000']
 
     def __init__(self, mocap_tsv_path=None, record_tsv_path=None,
@@ -113,42 +114,134 @@ class DFlowData(object):
         # TODO : Check to see if a compensation is needed and store the
         # file.
 
+        # TODO : This field may not be in the meta data.
+
         if self.meta['trial']['stationary-platform'] is False:
             return True
         else:
             return False
 
-    def _store_compensation_unlodaed_data_path(self):
-        """Stores the path to the compensation data file."""
+    def _store_compensation_data_path(self):
+        """Stores the path to the compensation data file.
 
-        trial_directory = (os.path.split(self.mocap_tsv_path)[0] or
-                            os.path.split(self.record_tsv_path)[0])
+        Notes
+        -----
 
-        self.compensation_tsv_path = os.path.join(trial_directory,
-                                                  self.meta['files']['compensation'])
+        The meta data yaml file must include a relative file path to a mocap
+        file that contains time series data appropriate for computing the
+        force inertial and rotational compensations. The yaml declaration
+        should look like this example:
 
-    def _load_compensation_data(self):
-        """Returns a data frame with the compensation data."""
+        files:
+            mocap: mocap-378.txt
+            record: record-378.txt
+            meta: meta-378.yml
+            compensation: ../path/to/mocap/file.txt
+
+        """
+
+        trial_directory = os.path.split(self.mocap_tsv_path or
+                                        self.record_tsv_path)[0]
+
+        try:
+            relative_path_to_unloaded_mocap_file = \
+                self.meta['files']['compensation']
+        except KeyError:
+            raise MetaDataError('You must include relative file path to the compensation file in {}.'.format(self.meta_yml_path))
+        else:
+            self.compensation_tsv_path = \
+                os.path.join(trial_directory,
+                             relative_path_to_unloaded_mocap_file)
+
+    def _load_compensation_data(self, fill_na=True):
+        """Returns a data frame which includes the treadmill forces/moments,
+        accelerometer signals, and the treadmill reference markers as time
+        series with respect to the D-Flow time stamp."""
+
         self._force_column_labels()
-        pass
 
-    def _get_header_labels(self, path, delimiter='\t'):
-        """Returns the
+        indices = [0]  # 0'th is the TimeStamp column
 
-        with open(self.mocap_tsv_path, 'r') as f:
-            mocap_column_labels = f.readline().strip().split('\t')
+        for label in self._header_labels(self.compensation_tsv_path):
+            if label in forces + accelerometers + treadmill_reference_markers:
+                indices.append(i)
 
-        return mocap_column_labels
+        unloaded_trial = pandas.read_csv(self.compensation_tsv_path,
+                                         delimiter='\t', usecols=indices)
+
+        # missing data should be identified and filled from the marker columns
+        marker_column_labels = self._marker_column_labels(unload_trial.columns)
+        unloaed_trial = self._identify_missing_markers(unloaded_trial,
+                                                       marker_column_labels)
+        unloaded_trial = self._interpolate_missing_markers(unloaded_trial,
+                                                           marker_column_labels)
+        unloaded_trial = self._shift_delsys_signals(unloaded_trial)
+
+        # TODO: Filter the forces?
+
+        return unloaded_trial
+
+    @staticmethod
+    def _low_pass_filter(data_frame, columns, cutoff, sample_rate):
+        """Returns the data frame with indicated columns filtered with a low
+        pass second order forward/backward Butterworth filter."""
+
+        data_frame[columns].values = \
+            process.butterworth(data_frame[columns].values,
+                                cutoff,
+                                sample_rate, axis=0)
+        return data_frame
+
+    def _shift_delsys_signals(self, data_frame, time_col='TimeStamp'):
+        """Returns a data frame in which the  Delsys columns are linearly
+        interpolated (and extrapolated) at the time they were actually
+        measured."""
+
+        # TODO : This changes the data frame in place, so there isn't much
+        # reason to return it.
+
+        delsys_time = data_frame[time_col] - self.delsys_time_delay
+        emg_labels, accel_labels = self._delsys_column_labels
+        delsys_labels = emg_labels + accel_labels
+
+        for delsys_label in set(data_frame.columns).intersect(delsys_labels):
+            interpolate = InterpolatedUnivariateSpline(data_frame[time_col],
+                                                       data_frame[delsys_label],
+                                                       k=1)
+            data_frame[delsys_label] = interpolate(delsys_time)
+
+        return data_frame
+
+    @staticmethod
+    def _header_labels(path_to_file, delimiter='\t'):
+        """Returns a list of labels from the header, i.e. first line, of a
+        delimited text file.
+
+        Parameters
+        ----------
+        path_to_file : string
+            Path to the delimited text file with a header on the first line.
+        delimiter : string, optional, default='\t'
+            The delimiter used in the file.
+
+        Returns
+        -------
+        header_labels : list of strings
+            A list of the headers in order as included from the file.
+
+        """
+
+        with open(path_to_file, 'r') as f:
+            header_labels = f.readline().strip().split(delimiter)
+
+        return header_labels
 
     def _mocap_column_labels(self):
         """Returns a list of strings containing the motion capture file's
         column labels. The list is in the same order as in the mocap tsv
         file."""
 
-        with open(self.mocap_tsv_path, 'r') as f:
-            mocap_column_labels = f.readline().strip().split('\t')
-
-        return mocap_column_labels
+        return self._header_labels(self.mocap_tsv_path)
 
     def _marker_column_labels(self, labels):
         """Returns a list of column labels that correpsond to markers, i.e.
@@ -222,6 +315,27 @@ class DFlowData(object):
 
         return [side + suffix for side in self.force_plate_names for suffix
                 in self.force_plate_columns]
+
+    def _delsys_column_labels(self):
+        """Returns the default EMG and Accelerometer column labels in which
+        the Delsys system is connected."""
+
+        number_delsys_sensors = 16
+
+        emg_analog_numbers = [4 * n + 13 for n in
+                              range(number_delsys_sensors)]
+        accel_analog_numbers = [4 * n + m + 14 for n in
+                                range(number_delsys_sensors) for m in
+                                range(3)]
+
+        emg_column_labels = ['Channel{}.Anlg'.format(4 * n + 13) for n in
+                             range(number_delsys_sensors)]
+
+        accel_column_labels = ['Channel{}.Anlg'.format(4 * n + m + 14) for n
+                               in range(number_delsys_sensors) for m in
+                               range(3)]
+
+        return emg_column_labels, accel_column_labels
 
     def _identify_missing_markers(self, data_frame):
         """Returns the data frame in which all marker columns have had
@@ -519,10 +633,7 @@ class DFlowData(object):
         # TODO : The accelerometer names should come from the meta data and
         # not be hard coded here.
 
-        accelerometers = ['Channel14.Anlg', 'Channel15.Anlg', 'Channel16.Anlg',
-                          'Channel18.Anlg', 'Channel19.Anlg', 'Channel20.Anlg',
-                          'Channel22.Anlg', 'Channel23.Anlg', 'Channel24.Anlg',
-                          'Channel26.Anlg', 'Channel27.Anlg', 'Channel28.Anlg']
+        accelerometers = self._delsys_column_labels()[1]
 
         # TODO : The forces should be filtered before passing into this #
         # function.
