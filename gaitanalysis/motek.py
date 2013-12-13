@@ -29,14 +29,16 @@ class MissingMarkerIdentifier(object):
     constant_marker_tolerance = 1e-16
 
     def __init__(self, data_frame):
-        """
+        """Instantiates the class with a data frame attribute.
 
         Parameters
         ----------
         data_frame : pandas.DataFrame, size(n, m)
             A data frame which contains only columns of marker position time
             histories. For this class to be useful, the marker time
-            histories should contain periods of constant values.
+            histories should contain periods of constant values. The column
+            names should have one of three suffixes: `.PosX`, `.PosY`, or
+            `.PosZ`.
 
         """
         self.data_frame = data_frame
@@ -48,8 +50,8 @@ class MissingMarkerIdentifier(object):
         Returns
         -------
         data_frame : pandas.DataFrame, size(n, m)
-            The same data frame which was supplied expect that constant
-            values have been replaced with NaN.
+            The same data frame which was supplied with constant values
+            replaced with NaN.
 
         Notes
         -----
@@ -62,11 +64,6 @@ class MissingMarkerIdentifier(object):
 
         """
 
-        # For each marker column we need to identify the constants values
-        # and replace with NaN, only if the values are constant in all
-        # coordinates of a marker.
-
-
         # A list of unique markers in the data set (i.e. without the
         # suffixes).
         unique_marker_names = list(set([c.split('.')[0] for c in
@@ -74,11 +71,11 @@ class MissingMarkerIdentifier(object):
 
         # Create a boolean array that labels all constant values (wrt to
         # tolerance) as True.
-        are_constant = data_frame.diff().abs() < \
-            self.constant_marker_tolerance
+        are_constant = \
+            self.data_frame.diff().abs() < self.constant_marker_tolerance
 
-        # Now make sure that the marker is constant in all three
-        # coordinates before setting it to NaN.
+        # Now make sure that the marker is constant in all three coordinates
+        # before setting it to NaN.
         for marker in unique_marker_names:
             single_marker_cols = [marker + pos for pos in
                                   self.marker_coordinate_suffixes]
@@ -86,17 +83,64 @@ class MissingMarkerIdentifier(object):
                 are_constant[col] = \
                     are_constant[single_marker_cols].all(axis=1)
 
-        data_frame[are_constant] = np.nan
+        self.data_frame[are_constant] = np.nan
 
-        return data_frame
+        return self.data_frame
 
     def statistics(self):
-        """Returns # missing markers and max consecutive for each column."""
+        """Returns a data frame containing the number of missing samples and
+        maximum number of consecutive missing samples for each column."""
 
-        # count NaNs in each column
-        stats = self.data_frame.count()
+        number_nan = len(self.data_frame) - self.data_frame.count()
 
-        pass
+        not_missing = self.data_frame.unstack().dropna()
+        max_missing = []
+        for col in self.data_frame.columns:
+            index = not_missing[col].index.values
+            max_missing.append(np.max(np.diff(index)) - 1)
+
+        max_missing = pandas.Series(max_missing,
+                                    index=self.data_frame.columns)
+
+        return pandas.DataFrame([number_nan, max_missing],
+                                columns=['# NA', 'Largest Gap'])
+
+
+def interpolate(self, data_frame, time_column, order=1, columns=None):
+    """Returns the data frame with all missing values replaced by some
+    interpolated or extrapolated value.
+
+    data_frame : pandas.DataFrame
+        A data frame which contains a column with a time vector and other
+        columns.
+    time_column : string
+
+
+    """
+
+    # Pandas 0.13.0 will have all the SciPy interpolation functions
+    # built in. But for now, we've got to do this manually.
+
+    # TODO : DataFrame.apply() might clean this code up.
+
+    if columns is None:
+        columns = data_frame.columns
+        columns.pop(time_column)
+
+    for column in columns:
+        time_series = data_frame[column]
+        is_null = time_series.isnull()
+        if any(is_null):
+            time = data_frame[time_column]
+            without_na = time_series.dropna().values
+            time_at_valid = time[time_series.notnull()].values
+
+            interpolate = InterpolatedUnivariateSpline(time_at_valid,
+                                                       without_na, k=order)
+            interpolated_values = interpolate(time[is_null].values)
+            data_frame[column][is_null] = interpolated_values
+
+    return data_frame
 
 
 class DFlowData(object):
@@ -125,6 +169,16 @@ class DFlowData(object):
     segment_labels = [_segment + _suffix for _segment in dflow_segments for
                       _suffix in marker_coordinate_suffixes +
                       rotation_suffixes]
+
+    # TODO: These should be stored in the meta data for each trial because
+    # the names could theorectically change, as they are selected by the
+    # user. They are used to express the forces in the global reference
+    # frame.
+    treadmill_markers = ['ROT_REF.PosX' 'ROT_REF.PosY' 'ROT_REF.PosZ'
+                         'ROT_C1.PosX' 'ROT_C1.PosY' 'ROT_C1.PosZ'
+                         'ROT_C2.PosX' 'ROT_C2.PosY' 'ROT_C2.PosZ'
+                         'ROT_C3.PosX' 'ROT_C3.PosY' 'ROT_C3.PosZ'
+                         'ROT_C4.PosX' 'ROT_C4.PosY' 'ROT_C4.PosZ']
 
     cortex_sample_rate = 100  # Hz
     constant_marker_tolerance = 1e-16  # meters
@@ -236,8 +290,8 @@ class DFlowData(object):
             relative_path_to_unloaded_mocap_file = \
                 self.meta['trial']['files']['compensation']
         except KeyError:
-            raise MetaDataError('You must include relative file path to the ' +
-                                'compensation file in {}.'.format(self.meta_yml_path))
+            raise Exception('You must include relative file path to the ' +
+                            'compensation file in {}.'.format(self.meta_yml_path))
         else:
             self.compensation_tsv_path = \
                 os.path.join(trial_directory,
@@ -248,12 +302,15 @@ class DFlowData(object):
         accelerometer signals, and the treadmill reference markers as time
         series with respect to the D-Flow time stamp."""
 
-        self._force_column_labels()
-
-        indices = [0]  # 0'th is the TimeStamp column
-
-        for label in self._header_labels(self.compensation_tsv_path):
-            if label in forces + accelerometers + treadmill_reference_markers:
+        # TODO : This forces shouldn't include the COP.
+        force_labels = self._force_column_labels()
+        accel_labels = self._delsys_column_labels()[1]
+        necessary_columns = (['TimeStamp'] + force_labels + accel_labels +
+                             self.treadmill_markers)
+        all_columns = self._header_labels(self.compensation_tsv_path)
+        indices = []
+        for i, label in enumerate(all_columns):
+            if label in necessary_columns:
                 indices.append(i)
 
         return pandas.read_csv(self.compensation_tsv_path, delimiter='\t',
@@ -261,9 +318,12 @@ class DFlowData(object):
 
     def _clean_compensation_data(data_frame):
         # missing data should be identified and filled from the marker columns
+
         marker_column_labels = self._marker_column_labels(unloaded_trial.columns)
 
-        unloaed_trial = self._identify_missing_markers(unloaded_trial,
+        identified = MissingMarkerIdentifier(data_frame[marker_column_labels]).identify()
+
+        unloaded_trial = self._identify_missing_markers(unloaded_trial,
                                                        marker_column_labels)
 
         unloaded_trial = self._interpolate_missing_markers(unloaded_trial,
@@ -712,22 +772,6 @@ class DFlowData(object):
         # TODO : These markers should come from the meta data and not be
         # hard coded here.
 
-        treadmill_markers = \
-            ['ROT_REF.PosX'
-             'ROT_REF.PosY'
-             'ROT_REF.PosZ'
-             'ROT_C1.PosX'
-             'ROT_C1.PosY'
-             'ROT_C1.PosZ'
-             'ROT_C2.PosX'
-             'ROT_C2.PosY'
-             'ROT_C2.PosZ'
-             'ROT_C3.PosX'
-             'ROT_C3.PosY'
-             'ROT_C3.PosZ'
-             'ROT_C4.PosX'
-             'ROT_C4.PosY'
-             'ROT_C4.PosZ']
 
         # TODO : The accelerometer names should come from the meta data and
         # not be hard coded here.
