@@ -266,9 +266,11 @@ class DFlowData(object):
         pass
 
     def _extract_events_from_record_file(self):
-        """Returns a dictionary of events and times from the record file
-        and/or meta data file."""
-        
+        """Returns a dictionary of events and times. The event names will be
+        the default A-F which is output by D-Flow unless you specify unique
+        names in the meta data file. If there are no events in the record
+        file, this will return nothing."""
+
         f=open(self.record_tsv_path,'r')
         filecontents=f.readlines()
         f.close()
@@ -276,7 +278,7 @@ class DFlowData(object):
         end_value=end.split()
         end_value1=end_value[0]
         end_time=float(end_value1)
-        
+
         if 'EVENT' in ''.join(filecontents):
             event_time1=[]
             event_labels=[]
@@ -287,21 +289,21 @@ class DFlowData(object):
                     event_data=event.split()
                     event_time1.append(float(event_data[0]))
         else: return
-        
+
         event_time1.append(end_time)
         self.events={}
-        
+
         for i,label in enumerate(event_labels):
             self.events[label]=(event_time1[i],event_time1[i+1])
-                        
+
         if self.meta_yml_path is not None:
             if 'event' in self.meta:
                 new_events={}
                 event_dictionary=self.meta['event']
                 for key,value in event_dictionary.items():
                     new_events[value]=self.events[key]
-                self.events=new_events                    
-            
+                self.events=new_events
+
     def _load_record_data(self):
         """Returns a data frame containing the data from the record
         module."""
