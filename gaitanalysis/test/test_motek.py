@@ -14,7 +14,8 @@ from nose.tools import assert_raises
 import yaml
 
 # local
-from ..motek import DFlowData
+from ..motek import (DFlowData, spline_interpolate_over_missing,
+                     low_pass_filter)
 from utils import compare_data_frames
 from dtk.process import time_vector
 
@@ -25,6 +26,74 @@ except ImportError:
     pass
 else:
     set_trace = Tracer()
+
+
+class TestMissingMarkerIdentfier:
+    # TODO : Impelement.
+    pass
+
+
+class TestSplineInterpolateOverMissing:
+
+    def setup(self):
+
+        self.with_missing = pandas.DataFrame({
+            'TimeStamp': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+            'FP1.ForX': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+            'T10.PosX': [1.0, np.nan, np.nan, np.nan, 5.0, 6.0, 7.0],
+            'T10.PosY': [1.0, np.nan, np.nan, np.nan, 5.0, 6.0, 7.0],
+            'T10.PosZ': [1.0, np.nan, np.nan, np.nan, 5.0, 6.0, np.nan]})
+
+        self.without_missing = pandas.DataFrame({
+            'TimeStamp': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+            'FP1.ForX': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+            'T10.PosX': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+            'T10.PosY': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+            'T10.PosZ': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]})
+
+    def test_basic(self):
+
+        interpolated = spline_interpolate_over_missing(self.with_missing,
+                                                       'TimeStamp')
+
+        assert not pandas.isnull(interpolated).any().any()
+        assert_frame_equal(interpolated, self.without_missing)
+
+    def test_columns(self):
+
+        columns_to_interpolate = ['T10.PosX', 'T10.PosY']
+
+        interpolated = \
+            spline_interpolate_over_missing(self.with_missing, 'TimeStamp',
+                                            columns=columns_to_interpolate)
+
+        testing.assert_allclose(interpolated['T10.PosZ'],
+                                self.with_missing['T10.PosZ'])
+        assert_frame_equal(interpolated[columns_to_interpolate],
+                           self.without_missing[columns_to_interpolate])
+
+
+def test_low_pass_filter():
+
+    time = np.linspace(0.0, 10.0)
+    sample_rate = np.diff(time).mean()
+
+    low_freq = np.sin(5.0 * 2.0 * np.pi * time)  # 5 Hz * 2 * pi
+    high_freq = np.sin(100.0 * 2.0 * np.pi * time)  # 100 Hz * 2 * pi
+
+    df = pandas.DataFrame({'T': time,
+                           'A': low_freq + high_freq,
+                           'B': low_freq,
+                           'C': high_freq,
+                           'D': low_freq + high_freq})
+
+    filtered = low_pass_filter(df, ['A', 'D'], 10.0, sample_rate)
+
+    testing.assert_allclose(filtered['T'].values, time)
+    testing.assert_allclose(filtered['A'].values, low_freq, rtol=0.2, atol=0.2)
+    testing.assert_allclose(filtered['B'].values, low_freq)
+    testing.assert_allclose(filtered['C'].values, high_freq)
+    testing.assert_allclose(filtered['D'].values, low_freq, rtol=0.2, atol=0.2)
 
 
 class TestDFlowData():
@@ -44,40 +113,38 @@ class TestDFlowData():
     cortex_marker_labels = ['T10.PosX',
                             'T10.PosY',
                             'T10.PosZ']
+
     cortex_analog_labels = ['FP1.ForX',
                             'FP1.MomX',
                             'Channel1.Anlg',
                             'Channel2.Anlg']
+
     dflow_hbm_labels = ['RKneeFlexion.Ang',
                         'RKneeFlexion.Mom',
                         'RKneeFlexion.Pow',
                         'R_PectoralisMajorTH1',
                         'L_RectusFemoris']
+
     mocap_labels_without_hbm = (['TimeStamp', 'FrameNumber'] +
                                 cortex_marker_labels + cortex_analog_labels)
+
     mocap_labels_with_hbm = mocap_labels_without_hbm + dflow_hbm_labels
 
-    compesation_treadmill_markers = ['ROT_REF.PosX' 'ROT_REF.PosY'
-                                     'ROT_REF.PosZ' 'ROT_C1.PosX'
-                                     'ROT_C1.PosY' 'ROT_C1.PosZ'
-                                     'ROT_C2.PosX' 'ROT_C2.PosY'
-                                     'ROT_C2.PosZ' 'ROT_C3.PosX'
-                                     'ROT_C3.PosY' 'ROT_C3.PosZ'
-                                     'ROT_C4.PosX' 'ROT_C4.PosY'
-                                     'ROT_C4.PosZ']
+    compensation_treadmill_markers = ['ROT_REF.PosX', 'ROT_REF.PosY',
+                                      'ROT_REF.PosZ', 'ROT_C1.PosX',
+                                      'ROT_C1.PosY', 'ROT_C1.PosZ',
+                                      'ROT_C2.PosX', 'ROT_C2.PosY',
+                                      'ROT_C2.PosZ', 'ROT_C3.PosX',
+                                      'ROT_C3.PosY', 'ROT_C3.PosZ',
+                                      'ROT_C4.PosX', 'ROT_C4.PosY',
+                                      'ROT_C4.PosZ']
 
     compensation_force_labels = ['FP1.ForX', 'FP1.ForY', 'FP1.ForZ',
                                  'FP1.MomX', 'FP1.MomY', 'FP1.MomZ',
-                                 'FP1.ForX', 'FP1.ForY', 'FP1.ForZ',
-                                 'FP1.MomX', 'FP1.MomY', 'FP1.MomZ']
+                                 'FP2.ForX', 'FP2.ForY', 'FP2.ForZ',
+                                 'FP2.MomX', 'FP2.MomY', 'FP2.MomZ']
 
-    compensation_analog_labels = ["Channel1.Anlg", "Channel2.Anlg",
-                                  "Channel3.Anlg", "Channel4.Anlg",
-                                  "Channel5.Anlg", "Channel6.Anlg",
-                                  "Channel7.Anlg", "Channel8.Anlg",
-                                  "Channel9.Anlg", "Channel10.Anlg",
-                                  "Channel11.Anlg", "Channel12.Anlg",
-                                  "Channel13.Anlg", "Channel14.Anlg",
+    compensation_analog_labels = ["Channel13.Anlg", "Channel14.Anlg",
                                   "Channel15.Anlg", "Channel16.Anlg",
                                   "Channel17.Anlg", "Channel18.Anlg",
                                   "Channel19.Anlg", "Channel20.Anlg",
@@ -91,7 +158,7 @@ class TestDFlowData():
     path_to_mocap_data_file = 'example_mocap_tsv_file.txt'
     path_to_record_data_file = 'example_record_tsv_file.txt'
     path_to_meta_data_file = 'example_meta_data_file.yml'
-    path_to_compensation_file = 'example_compensation_file.txt'
+    path_to_compensation_data_file = 'example_compensation_file.txt'
 
     #with open(os.path.join(__file__, 'data', 'meta-sample-full.yml'), 'r') as f:
         #meta_data = yaml.load(f)
@@ -105,8 +172,51 @@ class TestDFlowData():
                            'pitch': False,
                            'sway': True,
                            'marker-set': 'lower',
-                           }
-                 'subject': {'id': 234,
+                           'files': {
+                                     'mocap': path_to_mocap_data_file,
+                                     'record': path_to_record_data_file,
+                                     'meta': path_to_meta_data_file,
+                                     'compensation': path_to_compensation_data_file,
+                                    },
+                           'events': {
+                                      'A': 'Zeroing',
+                                      'B': 'Walking',
+                                      'C': 'Relaxing',
+                                     },
+                           'analog-channel-names':
+                               {
+                                    "Channel1.Anlg": "F1Y1",
+                                    "Channel2.Anlg": "F1Y2",
+                                    "Channel3.Anlg": "F1Y3",
+                                    "Channel4.Anlg": "F1X1",
+                                    "Channel5.Anlg": "F1X2",
+                                    "Channel6.Anlg": "F1Z1",
+                                    "Channel7.Anlg": "F2Y1",
+                                    "Channel8.Anlg": "F2Y2",
+                                    "Channel9.Anlg": "F2Y3",
+                                    "Channel10.Anlg": "F2X1",
+                                    "Channel11.Anlg": "F2X2",
+                                    "Channel12.Anlg": "F2Z1",
+                                    "Channel13.Anlg": "Front_Left_EMG",
+                                    "Channel14.Anlg": "Front_Left_AccX",
+                                    "Channel15.Anlg": "Front_Left_AccY",
+                                    "Channel16.Anlg": "Front_Left_AccZ",
+                                    "Channel17.Anlg": "Back_Left_EMG",
+                                    "Channel18.Anlg": "Back_Left_AccX",
+                                    "Channel19.Anlg": "Back_Left_AccY",
+                                    "Channel20.Anlg": "Back_Left_AccZ",
+                                    "Channel21.Anlg": "Front_Right_EMG",
+                                    "Channel22.Anlg": "Front_Right_AccX",
+                                    "Channel23.Anlg": "Front_Right_AccY",
+                                    "Channel24.Anlg": "Front_Right_AccZ",
+                                    "Channel25.Anlg": "Back_Right_EMG",
+                                    "Channel26.Anlg": "Back_Right_AccX",
+                                    "Channel27.Anlg": "Back_Right_AccY",
+                                    "Channel28.Anlg": "Back_Right_AccZ",
+                                },
+                           },
+                 'subject': {
+                             'id': 234,
                              'age': 28,
                              'mass': 70,
                              'mass-units': 'kilograms',
@@ -114,46 +224,11 @@ class TestDFlowData():
                              'height-units': 'meters',
                              'gender': 'male',
                              },
-                 'study': {'id': 12,
+                 'study': {
+                           'id': 12,
                            'name': 'Human Locomotion Control Identification',
-                           'description': 'Perturbations during walking and running.'},
-                 'files': {'mocap': path_to_mocap_data_file,
-                           'record': path_to_record_data_file,
-                           'meta': path_to_meta_data_file,
-                           'compensation': None},
-                 'events': {'A': 'Zeroing',
-                            'B': 'Walking',
-                            'C': 'Relaxing'},
-                 'analog-channel-names': {
-                    "Channel1.Anlg": "F1Y1",
-                    "Channel2.Anlg": "F1Y2",
-                    "Channel3.Anlg": "F1Y3",
-                    "Channel4.Anlg": "F1X1",
-                    "Channel5.Anlg": "F1X2",
-                    "Channel6.Anlg": "F1Z1",
-                    "Channel7.Anlg": "F2Y1",
-                    "Channel8.Anlg": "F2Y2",
-                    "Channel9.Anlg": "F2Y3",
-                    "Channel10.Anlg": "F2X1",
-                    "Channel11.Anlg": "F2X2",
-                    "Channel12.Anlg": "F2Z1",
-                    "Channel13.Anlg": "Front_Left_EMG",
-                    "Channel14.Anlg": "Front_Left_AccX",
-                    "Channel15.Anlg": "Front_Left_AccY",
-                    "Channel16.Anlg": "Front_Left_AccZ",
-                    "Channel17.Anlg": "Back_Left_EMG",
-                    "Channel18.Anlg": "Back_Left_AccX",
-                    "Channel19.Anlg": "Back_Left_AccY",
-                    "Channel20.Anlg": "Back_Left_AccZ",
-                    "Channel21.Anlg": "Front_Right_EMG",
-                    "Channel22.Anlg": "Front_Right_AccX",
-                    "Channel23.Anlg": "Front_Right_AccY",
-                    "Channel24.Anlg": "Front_Right_AccZ",
-                    "Channel25.Anlg": "Back_Right_EMG",
-                    "Channel26.Anlg": "Back_Right_AccX",
-                    "Channel27.Anlg": "Back_Right_AccY",
-                    "Channel28.Anlg": "Back_Right_AccZ",
-                    }
+                           'description': 'Perturbations during walking and running.',
+                          },
                  }
 
     def create_sample_mocap_file(self):
@@ -238,9 +313,6 @@ class TestDFlowData():
                                            self.cortex_number_of_samples, 1),
                       }
 
-        for label in self.compensation_treadmill_marker_labels:
-            compensation_data[label] = np.sin(compensation_data['TimeStamp'])
-
         for label in self.compensation_analog_labels:
             compensation_data[label] = np.cos(compensation_data['TimeStamp'])
 
@@ -249,15 +321,10 @@ class TestDFlowData():
 
         self.compensation_data_frame = pandas.DataFrame(compensation_data)
 
-        for j, index in enumerate(self.missing_marker_start_indices):
-            for signal in self.compensation_treadmill_markers:
-                self.compensation_data_frame[signal][index:index + self.length_missing[j]] = \
-                    self.compensation_data_frame[signal][index]
-
         cols = (["TimeStamp", 'FrameNumber'] +
-                self.compensation_treadmill_marker_labels +
-                self.compensation_analog_labels +
-                self.compensation_force_labels)
+                self.compensation_force_labels +
+                self.compensation_analog_labels
+                )
 
         self.compensation_data_frame.to_csv(self.path_to_compensation_data_file,
                                             sep='\t', float_format='%1.6f',
@@ -331,6 +398,7 @@ class TestDFlowData():
 
     def setup(self):
         self.create_sample_mocap_file()
+        self.create_sample_compensation_file()
         self.create_sample_record_file()
         self.create_sample_meta_data_file()
 
@@ -433,37 +501,23 @@ class TestDFlowData():
         assert not dflow_data._compensation_needed()
 
     def test_store_compensation_data_path(self):
+        # TODO : Not sure if this test is a good one. It needs to test
+        # whether the path builds correctly if you have the path to the main
+        # mocap file and the path to the compensation file relative to the
+        # main mocap file.
         dflow_data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
                                meta_yml_path=self.path_to_meta_data_file)
         dflow_data._store_compensation_data_path()
-        assert dflow_data.compensation_tsv_path == self.meta_data['trial']['files']['compensation']
+        assert (dflow_data.compensation_tsv_path ==
+                self.meta_data['trial']['files']['compensation'])
 
     def test_load_compensation_data(self):
         dflow_data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
                                meta_yml_path=self.path_to_meta_data_file)
+        dflow_data._store_compensation_data_path()
         unloaded_trial = dflow_data._load_compensation_data()
 
-
-        assert len(set(unloaded_trial.columns).diff() == 0
-
-    def test_low_pass_filter(self):
-        time = np.linspace(0.0, 10.0)
-        sample_rate = np.diff(time).mean()
-        low_freq = np.sin(5.0 * 2.0 * np.pi time)
-        high_freq = np.sin(10.0 * 2.0 * np.pi time)
-        df = pandas.DataFrame({'T': time,
-                               'A': low_freq + high_freq,
-                               'B': low_freq,
-                               'C': high_freq,
-                               'D': low_freq + high_freq})
-
-        filtered = DFlowData._low_pass_filter(df, ['A', 'D'], 7.0, sample_rate)
-
-        testing.assert_allclose(time, df['T'].values)
-        testing.assert_allclose(low_freq, df['A'].values)
-        testing.assert_allclose(low_freq, df['B'].values)
-        testing.assert_allclose(high_freq, df['C'].values)
-        testing.assert_allclose(low_freq, df['D'].values)
+        #assert len(set(unloaded_trial.columns).diff() == 0
 
     def test_mocap_column_labels(self):
 
@@ -567,7 +621,7 @@ class TestDFlowData():
         data=DFlowData(record_tsv_path=directory+'/data/example_extract_events_from_record_module.txt',
                              meta_yml_path=directory+'/data/meta_events_example.yml')
         data._extract_events_from_record_file()
-        
+
         expected_time_map={'ForcePlateZeroing': (208.038250,228.046535),
                        'NormalWalking':(228.046535,288.051670),
                        'TreadmillPerturbation':(288.051670,528.056120),
@@ -577,11 +631,11 @@ class TestDFlowData():
         for key,(start,end) in expected_time_map.items():
             assert abs(data.events[key][0]-start)<1e-16
             assert abs(data.events[key][1]-end)<1e-16
-            
-        #This checks without a meta.yml file    
+
+        #This checks without a meta.yml file
         data=DFlowData(record_tsv_path=directory+'/data/example_extract_events_from_record_module.txt')
         data._extract_events_from_record_file()
-        
+
         expected_time_map={'A': (208.038250,228.046535),
                        'B':(228.046535,288.051670),
                        'C':(288.051670,528.056120),

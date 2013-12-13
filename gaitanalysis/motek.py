@@ -34,24 +34,29 @@ class MissingMarkerIdentifier(object):
         Parameters
         ----------
         data_frame : pandas.DataFrame, size(n, m)
-            A data frame which contains only columns of marker position time
-            histories. For this class to be useful, the marker time
-            histories should contain periods of constant values. The column
-            names should have one of three suffixes: `.PosX`, `.PosY`, or
-            `.PosZ`.
+            A data frame which contains at least some columns of marker
+            position time histories. For this class to be useful, the marker
+            time histories should contain periods of constant values. The
+            column names should have one of three suffixes: `.PosX`,
+            `.PosY`, or `.PosZ`.
 
         """
-        self.data_frame = data_frame
 
-    def identify(self):
-        """Returns the data frame in which all columns have had constant
-        values replaced with NaN.
+        self.data_frame = data_frame
+        self._identified = False
+
+    def identify(self, columns=None):
+        """Returns the data frame in which all or the specified columns have
+        had constant values replaced with NaN.
 
         Returns
         -------
         data_frame : pandas.DataFrame, size(n, m)
             The same data frame which was supplied with constant values
             replaced with NaN.
+        columns : list of strings, optional, default=None
+            The specific list of columns in the data frame that should be
+            analyzed. This is typically a list of all marker columns.
 
         Notes
         -----
@@ -63,16 +68,17 @@ class MissingMarkerIdentifier(object):
         this happening is low.
 
         """
+        if columns is None:
+            columns = self.data_frame.columns
 
         # A list of unique markers in the data set (i.e. without the
         # suffixes).
-        unique_marker_names = list(set([c.split('.')[0] for c in
-                                        self.data_frame.columns]))
+        unique_marker_names = list(set([c.split('.')[0] for c in columns]))
 
         # Create a boolean array that labels all constant values (wrt to
         # tolerance) as True.
-        are_constant = \
-            self.data_frame.diff().abs() < self.constant_marker_tolerance
+        are_constant = (self.data_frame[columns].diff().abs() <
+                        self.constant_marker_tolerance)
 
         # Now make sure that the marker is constant in all three coordinates
         # before setting it to NaN.
@@ -85,11 +91,21 @@ class MissingMarkerIdentifier(object):
 
         self.data_frame[are_constant] = np.nan
 
+        self._identified = True
+
         return self.data_frame
 
     def statistics(self):
         """Returns a data frame containing the number of missing samples and
         maximum number of consecutive missing samples for each column."""
+
+        # TODO : Maybe just move this into
+        # DFlowData.missing_marker_statistics and make this class a
+        # function.
+
+        if not self.identified:
+            raise StandardError("You must run the `identify()` method " +
+                                "before computing the statistics.")
 
         number_nan = len(self.data_frame) - self.data_frame.count()
 
@@ -106,32 +122,52 @@ class MissingMarkerIdentifier(object):
                                 columns=['# NA', 'Largest Gap'])
 
 
-def interpolate(self, data_frame, time_column, order=1, columns=None):
+def spline_interpolate_over_missing(data_frame, abscissa_column, order=1,
+                                    columns=None):
     """Returns the data frame with all missing values replaced by some
-    interpolated or extrapolated value.
+    interpolated or extrapolated values derived from a spline.
 
+    Parameters
+    ----------
     data_frame : pandas.DataFrame
-        A data frame which contains a column with a time vector and other
-        columns.
-    time_column : string
+        A data frame which contains a column for the abscissa and other
+        columns which may or may not have missing values, i.e. NaN.
+    abscissa_column : string
+        The column name which represents the abscissa.
+    order : integer, optional, default=1
+        The order of the spline. Can be 1 through 5 for linear through
+        quintic splines. The default is a linear spline. See documentation
+        for scipy.interpolate.InterpolatedUnivariateSpline.
+    columns : list of strings, optional, default=None
+        If only a particular set of columns needs interpolation, they can be
+        specified here.
 
+    Returns
+    -------
+    data_frame : pandas.DataFrame
+        The same data frame passed in with all NaNs in the specified columns
+        replaced with interpolated or extrapolated values.
 
     """
 
-    # Pandas 0.13.0 will have all the SciPy interpolation functions
-    # built in. But for now, we've got to do this manually.
+    # Pandas 0.13.0 will have all the SciPy interpolation functions built
+    # in. But for now, we've got to do this manually.
 
     # TODO : DataFrame.apply() might clean this code up.
 
     if columns is None:
-        columns = data_frame.columns
-        columns.pop(time_column)
+        columns = list(data_frame.columns)
+
+    try:
+        columns.remove(abscissa_column)
+    except ValueError:
+        pass
 
     for column in columns:
         time_series = data_frame[column]
         is_null = time_series.isnull()
         if any(is_null):
-            time = data_frame[time_column]
+            time = data_frame[abscissa_column]
             without_na = time_series.dropna().values
             time_at_valid = time[time_series.notnull()].values
 
@@ -140,6 +176,15 @@ def interpolate(self, data_frame, time_column, order=1, columns=None):
             interpolated_values = interpolate(time[is_null].values)
             data_frame[column][is_null] = interpolated_values
 
+    return data_frame
+
+
+def low_pass_filter(data_frame, columns, cutoff, sample_rate):
+    """Returns the data frame with indicated columns filtered with a low
+    pass second order forward/backward Butterworth filter."""
+
+    data_frame[columns] = process.butterworth(data_frame[columns].values,
+                                              cutoff, sample_rate, axis=0)
     return data_frame
 
 
@@ -253,6 +298,9 @@ class DFlowData(object):
 
         """
 
+        # TODO : This looks ridiculous, I must be doing something wrong
+        # here.
+
         if self.meta_yml_path is not None:
             try:
                 if self.meta['trial']['stationary-platform'] is False:
@@ -299,14 +347,14 @@ class DFlowData(object):
 
     def _load_compensation_data(self):
         """Returns a data frame which includes the treadmill forces/moments,
-        accelerometer signals, and the treadmill reference markers as time
-        series with respect to the D-Flow time stamp."""
+        and the accelerometer signals as time series with respect to the
+        D-Flow time stamp."""
 
-        # TODO : This forces shouldn't include the COP.
-        force_labels = self._force_column_labels()
+        force_labels = \
+            self._force_column_labels(without_center_of_pressure=True)
         accel_labels = self._delsys_column_labels()[1]
-        necessary_columns = (['TimeStamp'] + force_labels + accel_labels +
-                             self.treadmill_markers)
+        necessary_columns = ['TimeStamp'] + force_labels + accel_labels
+
         all_columns = self._header_labels(self.compensation_tsv_path)
         indices = []
         for i, label in enumerate(all_columns):
@@ -316,38 +364,32 @@ class DFlowData(object):
         return pandas.read_csv(self.compensation_tsv_path, delimiter='\t',
                                usecols=indices)
 
-    def _clean_compensation_data(data_frame):
-        # missing data should be identified and filled from the marker columns
+    def _clean_compensation_data(self, data_frame):
+        """Returns a the data frame with Delsys signals shifted and all
+        signals low pass filtered.
 
-        marker_column_labels = self._marker_column_labels(unloaded_trial.columns)
+        Parameters
+        ----------
+        data_frame : pandas.DataFrame
+            This data frame should contain only the columns needed for the
+            compensation calculations: accelerometers and forces/moments.
 
-        identified = MissingMarkerIdentifier(data_frame[marker_column_labels]).identify()
+        Returns
+        -------
+        data_frame : pandas.DataFrame
+            The cleaned compensation data.
 
-        unloaded_trial = self._identify_missing_markers(unloaded_trial,
-                                                       marker_column_labels)
+        """
 
-        unloaded_trial = self._interpolate_missing_markers(unloaded_trial,
-                                                           marker_column_labels)
+        data_frame = self._shift_delsys_signals(data_frame)
 
-        unloaded_trial = self._shift_delsys_signals(unloaded_trial)
+        columns = list(data_frame.columns)
+        columns.remove('TimeStamp')
 
+        data_frame = low_pass_filter(data_frame, columns,
+                                     self.low_pass_cutoff,
+                                     self.cortex_sample_rate)
 
-        unloaded_trial = self._low_pass_filter(unloaded_trial,
-                                               all_columns_except_timestamp,
-                                               self.low_pass_cutoff,
-                                               self.cortex_sample_rate)
-
-        return unloaded_trial
-
-    @staticmethod
-    def _low_pass_filter(data_frame, columns, cutoff, sample_rate):
-        """Returns the data frame with indicated columns filtered with a low
-        pass second order forward/backward Butterworth filter."""
-
-        data_frame[columns].values = \
-            process.butterworth(data_frame[columns].values,
-                                cutoff,
-                                sample_rate, axis=0)
         return data_frame
 
     def _shift_delsys_signals(self, data_frame, time_col='TimeStamp'):
@@ -355,14 +397,11 @@ class DFlowData(object):
         interpolated (and extrapolated) at the time they were actually
         measured."""
 
-        # TODO : This changes the data frame in place, so there isn't much
-        # reason to return it.
-
         delsys_time = data_frame[time_col] - self.delsys_time_delay
-        emg_labels, accel_labels = self._delsys_column_labels
+        emg_labels, accel_labels = self._delsys_column_labels()
         delsys_labels = emg_labels + accel_labels
 
-        for delsys_label in set(data_frame.columns).intersect(delsys_labels):
+        for delsys_label in set(data_frame.columns).intersection(delsys_labels):
             interpolate = InterpolatedUnivariateSpline(data_frame[time_col],
                                                        data_frame[delsys_label],
                                                        k=1)
@@ -468,15 +507,36 @@ class DFlowData(object):
 
         return hbm_labels, hbm_indices, non_hbm_indices
 
-    def _force_column_labels(self):
-        """Returns a list of force column labels."""
+    def _force_column_labels(self, without_center_of_pressure=False):
+        """Returns a list of force column labels.
+
+        Parameters
+        ----------
+        without_center_of_pressure: boolean, optional, default=False
+            If true, the center of pressure labels will not be included in
+            the list.
+
+        Returns
+        -------
+        labels : list of strings
+            A list of the force plate related signals.
+
+        """
+
+        if without_center_of_pressure is True:
+            f = lambda suffix: 'Cop' in suffix
+        else:
+            f = lambda suffix: True
 
         return [side + suffix for side in self.force_plate_names for suffix
-                in self.force_plate_columns]
+                in self.force_plate_suffix if not f(suffix)]
 
     def _delsys_column_labels(self):
         """Returns the default EMG and Accelerometer column labels in which
         the Delsys system is connected."""
+
+        # TODO : The accelerometer names should come from the meta data and
+        # not be hard coded here.
 
         number_delsys_sensors = 16
 
@@ -531,26 +591,8 @@ class DFlowData(object):
         marker_column_labels = \
             self._marker_column_labels(self.mocap_column_labels)
 
-        # A list of unique markers in the data set (i.e. without the
-        # suffixes).
-        unique_marker_names = list(set([c.split('.')[0] for c in
-                                        marker_column_labels]))
-
-        # Create a boolean array that labels all constant values (wrt to
-        # tolerance) as True.
-        are_constant = data_frame[marker_column_labels].diff().abs() < \
-            self.constant_marker_tolerance
-
-        # Now make sure that the marker is constant in all three
-        # coordinates before setting it to NaN.
-        for marker in unique_marker_names:
-            single_marker_cols = [marker + pos for pos in
-                                  self.marker_coordinate_suffixes]
-            for col in single_marker_cols:
-                are_constant[col] = \
-                    are_constant[single_marker_cols].all(axis=1)
-
-        data_frame[are_constant] = np.nan
+        identifier = MissingMarkerIdentifier(data_frame)
+        data_frame = identifier.identify(columns=marker_column_labels)
 
         return data_frame
 
@@ -577,43 +619,12 @@ class DFlowData(object):
         """Returns the data frame with all missing markers replaced by some
         interpolated value."""
 
-        # Pandas 0.13.0 will have all the SciPy interpolation functions
-        # built in. But for now, we've got to do this manually.
-
-        # TODO : Interpolate the HBM columns if they are loaded from file.
-
-        # TODO : DataFrame.apply() might clean this code up.
 
         markers = self._marker_column_labels(self.mocap_column_labels)
-        for marker_label in markers:
-            time_series = data_frame[marker_label]
-            is_null = time_series.isnull()
-            if any(is_null):
-                time = data_frame[time_col]
-                without_na = time_series.dropna().values
-                time_at_valid = time[time_series.notnull()].values
 
-                interpolate = InterpolatedUnivariateSpline(time_at_valid,
-                                                           without_na,
-                                                           k=order)
-                interpolated_values = interpolate(time[is_null].values)
-                data_frame[marker_label][is_null] = interpolated_values
+        data_frame = spline_interpolate_over_missing(data_frame, time_col,
+                                                     order=order)
 
-        return data_frame
-
-    def _shift_delsys_signals(self, data_frame):
-        """Returns a data frame with delsys wireless signals shifted in time
-        forward by 96 ms.
-
-        Notes
-        -----
-        The Delsys wireless EMG/Accelermeters have a 96ms lag with respect
-        to the another analog channels that are sampled by the National
-        Instruments DAQ.
-
-        """
-        # TODO : implement this time shift function
-        new_time = data_frame['TimeStamp'] - self.delsys_time_delay
         return data_frame
 
     def _load_mocap_data(self, ignore_hbm=False, id_hbm_na=False):
@@ -648,9 +659,12 @@ class DFlowData(object):
                 return pandas.read_csv(self.mocap_tsv_path, delimiter='\t')
 
     def missing_value_statistics(self, data_frame):
-        """Returns a report of missing values in the marker and/or HBM
-        columns."""
-        pass
+        """Returns a report of missing values in the data frame."""
+
+        identifier = MissingMarkerIdentifier(data_frame)
+        identifier._identified = True
+
+        return identifier.statistics()
 
     def _extract_events_from_record_file(self):
         """Returns a dictionary of events and times. The event names will be
@@ -700,7 +714,8 @@ class DFlowData(object):
         # hashes. We must dropna to remove commented lines from the
         # resutling data frame, only if all values in a row are NA. The
         # comment keyword argument only ingores comments at the end of each
-        # line, not comments that take up an entire line.
+        # line, not comments that take up an entire line, it is acutally
+        # probably not even needed in this case.
         return pandas.read_csv(self.record_tsv_path, delimiter='\t',
                                comment='#').dropna(how='all').reset_index(drop=True)
 
@@ -753,41 +768,37 @@ class DFlowData(object):
         pitching motions of the treadmill and subtracts them from the
         measured forces and moments based on linear acceleration
         measurements of the treadmill."""
+        """Re-expresses the forces and moments measured by the treadmill to
+        the earth inertial reference frame."""
 
         # If you accelerate the treadmill there will be forces and moments
         # measured by the force plates that simply come from the motion.
         # When external loads are applied to the force plates, you must
         # subtract these inertial forces from the measured forces to get
         # correct estimates of the body fixed externally applied forces.
-        # TODO : Implement this.
 
-        octave.addpath(os.path.join(__file__, '..', 'Octave-Matlab-Codes',
-                                    'Inertial-Compensation',
-                                    'inertial_compensation.m'))
+        # The markers are measured with respect to the camera's inertial
+        # reference frame, earth, but the treadmill forces are measured with
+        # respect to the treadmill's laterally and rotationaly moving
+        # reference frame. We need both to be expressed in the same inertial
+        # reference frame for ease of future computations.
+        mfile = os.path.abspath(os.path.join(os.path.split(__file__)[0],
+                                             '..', 'Octave-Matlab-Codes',
+                                             'Inertial-Compensation',
+                                             'inertial_compensation.m'))
+        octave.addpath(mfile)
 
         forces = ['FP1.ForX', 'FP1.ForY', 'FP1.ForZ', 'FP1.MomX',
-                  'FP1.MomY', 'FP1.MomZ', 'FP1.ForX', 'FP1.ForY',
-                  'FP1.ForZ', 'FP1.MomX', 'FP1.MomY', 'FP1.MomZ']
+                  'FP1.MomY', 'FP1.MomZ', 'FP2.ForX', 'FP2.ForY',
+                  'FP2.ForZ', 'FP2.MomX', 'FP2.MomY', 'FP2.MomZ']
 
-        # TODO : These markers should come from the meta data and not be
-        # hard coded here.
-
-
-        # TODO : The accelerometer names should come from the meta data and
-        # not be hard coded here.
 
         accelerometers = self._delsys_column_labels()[1]
-
-        # TODO : The forces should be filtered before passing into this #
-        # function.
-
-        # TODO : The time delays for the Delsys system should be compensated
-        # for before passing to this function.
 
         compensated_forces = \
             octave.inertial_compensation(calibration_data_frame[forces].values,
                                          calibration_data_frame[forces].values,
-                                         data_frame[treadmill_markers].values,
+                                         data_frame[self.treadmill_markers].values,
                                          data_frame[forces].values,
                                          data_frame[accelerometers].values)
 
@@ -795,43 +806,40 @@ class DFlowData(object):
 
         return data_frame
 
-    def _express_forces_in_treadmill_reference_frame(self):
-        """Re-expresses the forces and moments measured by the treadmill to
-        the earth inertial reference frame."""
-        # The markers are measured with respect to the camera's inertial
-        # reference frame, earth, but the treadmill forces are measured with
-        # respect to the treadmill's laterally and rotationaly moving
-        # reference frame. We need both to be expressed in the same inertial
-        # reference frame for ease of future computations.
-        # TODO : Implement this.
-        raise NotImplementedError()
-
-    def _inverse_dynamics(self):
-        """Returns a data frame with joint angles, rates, and torques based
-        on the measured marker positions and force plate forces."""
-        # TODO : Add some method of generating joint angles, rates, and
-        # torques. Note that if the treadmill is in motion (laterally,
-        # pitch), then one must compensate for the interial forces and deal
-        # with reexpressing in the treadmill reference frame before
-        # computing the inverse dynamics.
-        raise NotImplementedError()
-
-    def clean_data(self, interpolate_markers=False):
-        """Loads and processes the data."""
+    def clean_data(self, interpolate_markers=True):
+        """Returns the processed, "cleaned", data."""
 
         if self.mocap_tsv_path is not None:
+
             raw_mocap_data_frame = self._load_mocap_data(ignore_hbm=True)
+
+            mocap_data_frame = self._shift_delsys_signals(raw_mocap_data_frame)
+
             mocap_data_frame = \
                 self._identify_missing_markers(raw_mocap_data_frame)
+
             mocap_data_frame = \
                 self._generate_cortex_time_stamp(mocap_data_frame)
+
             if interpolate_markers is True:
                 mocap_data_frame = \
                     self._interpolate_missing_markers(mocap_data_frame)
-            if self._compensate_forces():
+
+            if self._compensation_needed:
+
+                self._store_compensation_data_path()
+
                 unloaded_trial = self._load_compensation_data()
+
+                unloaded_trial = self._clean_compensation_data(unloaded_trial)
+
+                if interpolate_markers is False:
+                    identifier = MissingMarkerIdentifier(mocap_data_frame)
+                    mocap_data_frame = identifier.identify(columns=self.treadmill_markers)
+
                 mocap_data_frame = self._compensate_forces(unloaded_trial,
                                                            mocap_data_frame)
+
             self.mocap_data = mocap_data_frame
 
         if self.record_tsv_path is not None:
@@ -844,12 +852,18 @@ class DFlowData(object):
             self.raw_record_data_frame = self._load_record_data()
 
         if self.mocap_tsv_path is not None and self.record_tsv_path is not None:
+
             self.record_data = \
                 self._resample_record_data(self.raw_record_data_frame)
+
             self.data = self.mocap_data.join(self.record_data)
+
         elif self.mocap_tsv_path is None and self.record_tsv_path is not None:
+
             self.data = self.raw_record_data_frame
+
         elif self.mocap_tsv_path is not None and self.record_tsv_path is None:
+
             self.data = self.mocap_data
 
         return self.data
@@ -865,7 +879,8 @@ class DFlowData(object):
     def write_dflow_tsv(self, filename):
 
         # This must preserve the mocap column order and can only append the
-        # record or inverse dynamics stuff to the right most columns.
+        # record to the right most columns.
 
         self.data.to_csv(filename, sep='\t', float_format='%1.6f',
-                         index=False, cols=self.mocap_column_labels)
+                         na_rep='NA', index=False,
+                         cols=self.mocap_column_labels)
