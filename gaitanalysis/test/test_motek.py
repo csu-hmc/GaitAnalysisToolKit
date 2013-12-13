@@ -421,7 +421,35 @@ class TestDFlowData():
         compare_data_frames(raw_mocap_data, expected, atol=1e-6)
 
     def test_extract_events_from_record_file(self):
-        pass
+        #This checks with a meta.yml file
+        directory=os.path.split(__file__)[0]
+        data=DFlowData(record_tsv_path=directory+'/data/example_extract_events_from_record_module.txt',
+                             meta_yml_path=directory+'/data/meta_events_example.yml')
+        data._extract_events_from_record_file()
+        
+        expected_time_map={'ForcePlateZeroing': (208.038250,228.046535),
+                       'NormalWalking':(228.046535,288.051670),
+                       'TreadmillPerturbation':(288.051670,528.056120),
+                       'Both':(528.056120,768.060985),
+                       'Normal':(768.060985,768.064318)}
+
+        for key,(start,end) in expected_time_map.items():
+            assert abs(data.events[key][0]-start)<1e-16
+            assert abs(data.events[key][1]-end)<1e-16
+            
+        #This checks without a meta.yml file    
+        data=DFlowData(record_tsv_path=directory+'/data/example_extract_events_from_record_module.txt')
+        data._extract_events_from_record_file()
+        
+        expected_time_map={'A': (208.038250,228.046535),
+                       'B':(228.046535,288.051670),
+                       'C':(288.051670,528.056120),
+                       'D':(528.056120,768.060985),
+                       'E':(768.060985,768.064318)}
+
+        for key,(start,end) in expected_time_map.items():
+            assert abs(data.events[key][0]-start)<1e-16
+            assert abs(data.events[key][1]-end)<1e-16
 
     def test_load_record_data(self):
         dflow_data = DFlowData(record_tsv_path=self.path_to_record_data_file)
