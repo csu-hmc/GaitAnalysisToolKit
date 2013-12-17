@@ -683,38 +683,40 @@ class DFlowData(object):
         names in the meta data file. If there are no events in the record
         file, this will return nothing."""
 
-        f=open(self.record_tsv_path,'r')
-        filecontents=f.readlines()
+        f = open(self.record_tsv_path, 'r')
+        filecontents = f.readlines()
         f.close()
-        end=filecontents[-6]
-        end_value=end.split()
-        end_value1=end_value[0]
-        end_time=float(end_value1)
+
+        end = filecontents[-6]
+        end_value = end.split()
+        end_value1 = end_value[0]
+        end_time = float(end_value1)
 
         if 'EVENT' in ''.join(filecontents):
-            event_time1=[]
-            event_labels=[]
+            event_time1 = []
+            event_labels = []
             for i in range(len(filecontents)):
                 if 'COUNT' in filecontents[i]:
                     event_labels.append(filecontents[i].split(' ')[2])
-                    event=filecontents[i-2]
-                    event_data=event.split()
+                    event = filecontents[i - 2]
+                    event_data = event.split()
                     event_time1.append(float(event_data[0]))
-        else: return
+        else:
+            return
 
         event_time1.append(end_time)
-        self.events={}
+        self.events = {}
 
         for i,label in enumerate(event_labels):
-            self.events[label]=(event_time1[i],event_time1[i+1])
+            self.events[label] = (event_time1[i], event_time1[i+1])
 
         if self.meta_yml_path is not None:
-            if 'event' in self.meta:
-                new_events={}
-                event_dictionary=self.meta['event']
+            if 'events' in self.meta['trial']:
+                new_events = {}
+                event_dictionary = self.meta['trial']['events']
                 for key,value in event_dictionary.items():
-                    new_events[value]=self.events[key]
-                self.events=new_events
+                    new_events[value] = self.events[key]
+                self.events = new_events
 
     def _load_record_data(self):
         """Returns a data frame containing the data from the record
@@ -793,6 +795,7 @@ class DFlowData(object):
         # respect to the treadmill's laterally and rotationaly moving
         # reference frame. We need both to be expressed in the same inertial
         # reference frame for ease of future computations.
+
         mfile = os.path.abspath(os.path.join(os.path.split(__file__)[0],
                                              '..', 'Octave-Matlab-Codes',
                                              'Inertial-Compensation'))
@@ -801,7 +804,6 @@ class DFlowData(object):
         forces = ['FP1.ForX', 'FP1.ForY', 'FP1.ForZ', 'FP1.MomX',
                   'FP1.MomY', 'FP1.MomZ', 'FP2.ForX', 'FP2.ForY',
                   'FP2.ForZ', 'FP2.MomX', 'FP2.MomY', 'FP2.MomZ']
-
 
         # First four accelerometers.
         accelerometers = self._delsys_column_labels()[1][:4 * 3]
@@ -812,87 +814,216 @@ class DFlowData(object):
                                          data_frame[self.treadmill_markers].values,
                                          data_frame[forces].values,
                                          data_frame[accelerometers].values)
+        set_trace()
 
         data_frame[forces] = compensated_forces
 
         return data_frame
 
-    def clean_data(self, interpolate_markers=True):
-        """Returns the processed, "cleaned", data."""
+    def _compensate(self, mocap_data_frame, markers_missing=False):
+        """Returns the data frame with the forces compensated.
+
+        Parameters
+        ----------
+        mocap_data_frame : pandas.DataFrame
+            A data frame that contains the force plate forces and moments to
+            be compensated, along with the measurements of the markers and
+            accelerometers that were attached to the treadmill.
+        markers_missing : pandas.DataFrame
+            If the treadmill markers have missing markers, this should be
+            true so that they are fixed before the compensation.
+
+        Returns
+        -------
+        mocap
+
+        Notes
+        -----
+
+        This method does the following:
+
+        1. Pulls the compensation file path from meta data.
+        2. Loads the compensation file (only the necessary columns).
+        3. Identifies the missing markers in the compensation file and
+           interpolates to fill them.
+        4. Shifts the Delsys signals to correct time.
+        5. Filter the forces, accelerometer, and treadmill markers at 6 hz low pass.
+        6. Compute the compensated forces (apply inertial compensation and express
+            in global reference frame)
+        7. Replace the force/moment measurements in the mocap data file with the
+            compensated forces/moments.
+
+        """
+        if self._compensation_needed() is True:
+
+            self._store_compensation_data_path()
+
+            unloaded_trial = self._load_compensation_data()
+
+            unloaded_trial = self._clean_compensation_data(unloaded_trial)
+
+            if markers_missing is True:
+                identifier = MissingMarkerIdentifier(mocap_data_frame)
+                mocap_data_frame = \
+                    identifier.identify(columns=self.treadmill_markers)
+
+            return self._compensate_forces(unloaded_trial, mocap_data_frame)
+        else:
+            return mocap_data_Frame
+
+    def clean_data(self, interpolate_markers=False, filter=False,
+                   interpolate_hbm=False):
+        """Returns the processed, "cleaned", data.
+
+        Parameters
+        ----------
+        interpolate_markers : boolean, optional, default=False
+            If true the missing markers will be interpolated. Note that if
+            force compensation is needed, the treadmill missing markers will
+            always be fixed.
+        filter : boolean, optional, default=False
+            If true, all of the signals will be low pass filtered.
+        interpolate_hbm : boolean, optional, default=False
+            If true, the human body model data will repaired for missing
+            values. This only applies if the human body model data was
+            loaded.
+
+        Notes
+        -----
+
+        1. Loads the mocap and record modules into Pandas ``DataFrame``\s.
+        2. Shifts the Delsys signals in the mocap module data to accomodate
+           for the wireless time delay, ~96ms.
+        3. Identifies the missing values in the mocap marker data and
+           replaces with NaNl.
+        4. Returns statistics on how many missing values in the marker time
+           series are present, the max consecutive missing values, etc.
+        5. Optionally, interpolates the missing marker values and replaces them with
+           interpolated estimates
+        6. Compensates the force measurments for the motion of the treadmill
+           base, if needed.
+
+            1. Pulls the compensation file path from meta data.
+            2. Loads the compensation file (only the necessary columns).
+            3. Identifies the missing markers and interpolates to fill them.
+            4. Shifts the Delsys signals to correct time.
+            5. Filter the forces, accelerometer, and treadmill markers at 6 hz low pass.
+            6. Compute the compensated forces (apply inertial compensation and express
+                in global reference frame)
+            7. Replace the force/moment measurements in the mocap data file with the
+                compensated forces/moments.
+
+        7. Optionally, low pass filter all human related data. (If there
+           wasn't a stationary platform, then these should always be
+           filtered with the same low pass filter as the compensation
+           algorithm used.)
+        8. Merges the data from the mocap module and record module into one
+           ``DataFrame``.
+
+        """
 
         if self.mocap_tsv_path is not None:
 
             raw_mocap_data_frame = self._load_mocap_data(ignore_hbm=True)
 
-            mocap_data_frame = self._shift_delsys_signals(raw_mocap_data_frame)
+            shifted_mocap_data_frame = self._shift_delsys_signals(raw_mocap_data_frame)
+
+            identified_mocap_data_frame = \
+                self._identify_missing_markers(shifted_mocap_data_frame)
 
             mocap_data_frame = \
-                self._identify_missing_markers(raw_mocap_data_frame)
-
-            mocap_data_frame = \
-                self._generate_cortex_time_stamp(mocap_data_frame)
+                self._generate_cortex_time_stamp(identified_mocap_data_frame)
 
             if interpolate_markers is True:
                 mocap_data_frame = \
                     self._interpolate_missing_markers(mocap_data_frame)
 
-            if self._compensation_needed is True:
-
-                self._store_compensation_data_path()
-
-                unloaded_trial = self._load_compensation_data()
-
-                unloaded_trial = self._clean_compensation_data(unloaded_trial)
-
-                if interpolate_markers is False:
-                    identifier = MissingMarkerIdentifier(mocap_data_frame)
-                    mocap_data_frame = \
-                        identifier.identify(columns=self.treadmill_markers)
-
-                mocap_data_frame = self._compensate_forces(unloaded_trial,
-                                                           mocap_data_frame)
+            mocap_data_frame = self._compensate(mocap_data_frame,
+                                                markers_missing=not
+                                                interpolate_markers)
 
             self.mocap_data = mocap_data_frame
 
-        if self.record_tsv_path is not None:
-            # TODO : A record file that has events but no event mapping in
-            # given in a meta file should do some default event handling
-            # behavior. Keep in mind that D-Flow only allows a certain
-            # number of events (A through F) and multiple counts for the
-            # events.
+        if record is not None:
+
             self._extract_events_from_record_file()
             self.raw_record_data_frame = self._load_record_data()
 
-        if self.mocap_tsv_path is not None and self.record_tsv_path is not None:
+        self.data = self._merge_mocap_record()
+
+    def _merge_mocap_record(self):
+        """Returns a data frame that is a merger of the mocap and record
+        data, if needed."""
+
+        mocap = self.mocap_tsv_path
+        record = self.record_tsv_path
+
+        if mocap is not None and record is not None:
 
             self.record_data = \
                 self._resample_record_data(self.raw_record_data_frame)
 
-            self.data = self.mocap_data.join(self.record_data)
+            data = self.mocap_data.join(self.record_data)
 
-        elif self.mocap_tsv_path is None and self.record_tsv_path is not None:
+        elif mocap is None and record is not None:
 
-            self.data = self.raw_record_data_frame
+            data = self.raw_record_data_frame
 
-        elif self.mocap_tsv_path is not None and self.record_tsv_path is None:
+        elif mocap is not None and record is None:
 
-            self.data = self.mocap_data
+            data = self.mocap_data
 
-        return self.data
+    def extract_processed_data(self, event=None, index_col=None):
+        """Returns the processed data in a data frame. If an event name is
+        provided, then a data frame with only that event is returned.
 
-    def extract_data(self, event=None, columns=None, **kwargs):
-        """Returns a data frame which may be a subject of the master data
-        frame."""
-        if columns is None:
-            return self.data
+        Parameters
+        ----------
+        event : string, optional, default=None
+            A name of a detected event. Must be a valid key in self.events.
+        index_col : string, optional, default=None
+            A name of a column in the data frame. If provided the the column
+            will be removed from the data frame and used as the index. This
+            is useful for assigning one of the time columns as the index.
+
+        Returns
+        -------
+        data_frame : pandas.DataFrame
+            The processed data.
+
+        """
+
+        try:
+            self.data
+        except AttributeError:
+            raise AttributeError('You must run clean_data first.')
+
+        if event=None:
+            data_frame = self.data
         else:
-            return self.data[columns]
+            try:
+                start, stop = dflow_data.events['Both']
+            except AttributeError:
+                raise AttributeError('No events have been initialized.')
+            except KeyError:
+                raise KeyError('{} is not a valid event, check the ' +
+                               'events attribute for valid keys.'.format(event))
+            else:
+                start_i = argmin(abs(self.data['TimeStamp'] - start))
+                stop_i = argmin(abs(self.data['TimeStamp'] - stop))
+                data_frame = self.data.iloc[start_i, stop_i]
 
-    def write_dflow_tsv(self, filename):
+        if index_col is not None:
+            data_frame.index = self.data[index_col]
+            data_frame.remove(index_col)
+
+        return data_frame
+
+    def write_dflow_tsv(self, filename, na_rep='NA'):
 
         # This must preserve the mocap column order and can only append the
         # record to the right most columns.
 
         self.data.to_csv(filename, sep='\t', float_format='%1.6f',
-                         na_rep='NA', index=False,
+                         na_rep=na_rep, index=False,
                          cols=self.mocap_column_labels)
