@@ -43,7 +43,6 @@ class MissingMarkerIdentifier(object):
         """
 
         self.data_frame = data_frame
-        self._identified = False
 
     def identify(self, columns=None):
         """Returns the data frame in which all or the specified columns have
@@ -71,6 +70,14 @@ class MissingMarkerIdentifier(object):
         if columns is None:
             columns = self.data_frame.columns
 
+        self.columns = columns
+
+        for col in columns:
+            if not any(col.endswith(suffix) for suffix in
+                       self.marker_coordinate_suffixes):
+                raise ValueError('Please pass in a list of marker columns ' +
+                                 'so I know which to identify.')
+
         # A list of unique markers in the data set (i.e. without the
         # suffixes).
         unique_marker_names = list(set([c.split('.')[0] for c in columns]))
@@ -91,8 +98,6 @@ class MissingMarkerIdentifier(object):
 
         self.data_frame[are_constant] = np.nan
 
-        self._identified = True
-
         return self.data_frame
 
     def statistics(self):
@@ -103,23 +108,31 @@ class MissingMarkerIdentifier(object):
         # DFlowData.missing_marker_statistics and make this class a
         # function.
 
-        if not self.identified:
+        # TODO : This would be nicer if it gave length of each gap for each
+        # marker. Then you could count the number of gaps, find the max gap,
+        # and total the missing samples easily. The np.diff(index) - 1 gives
+        # length of each gap.
+
+        try:
+            self.columns
+        except AttributeError:
             raise StandardError("You must run the `identify()` method " +
                                 "before computing the statistics.")
 
-        number_nan = len(self.data_frame) - self.data_frame.count()
+        df = self.data_frame[self.columns]
 
-        not_missing = self.data_frame.unstack().dropna()
+        number_nan = len(df) - df.count()
+
+        not_missing = df.unstack().dropna()
         max_missing = []
-        for col in self.data_frame.columns:
+        for col in df.columns:
             index = not_missing[col].index.values
             max_missing.append(np.max(np.diff(index)) - 1)
 
-        max_missing = pandas.Series(max_missing,
-                                    index=self.data_frame.columns)
+        max_missing = pandas.Series(max_missing, index=df.columns)
 
         return pandas.DataFrame([number_nan, max_missing],
-                                columns=['# NA', 'Largest Gap'])
+                                index=['# NA', 'Largest Gap']).T
 
 
 def spline_interpolate_over_missing(data_frame, abscissa_column, order=1,

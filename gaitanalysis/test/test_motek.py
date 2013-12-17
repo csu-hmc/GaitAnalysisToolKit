@@ -16,7 +16,7 @@ from dtk.process import time_vector
 
 # local
 from ..motek import (DFlowData, spline_interpolate_over_missing,
-                     low_pass_filter)
+                     low_pass_filter, MissingMarkerIdentifier)
 from .utils import compare_data_frames
 
 # debugging
@@ -29,8 +29,54 @@ else:
 
 
 class TestMissingMarkerIdentfier:
-    # TODO : Impelement.
-    pass
+
+    def setup(self):
+
+        self.with_constant = pandas.DataFrame({
+            'TimeStamp': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+            'FP1.ForX': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+            'T10.PosX': [1.0, 1.0, 1.0, 1.0, 5.0, 6.0, 7.0],
+            'T10.PosY': [1.0, 1.0, 1.0, 1.0, 5.0, 6.0, 7.0],
+            'T10.PosZ': [1.0, 1.0, 1.0, 1.0, 5.0, 6.0, 6.0]})
+
+        self.with_missing = pandas.DataFrame({
+            'TimeStamp': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+            'FP1.ForX': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+            'T10.PosX': [1.0, np.nan, np.nan, np.nan, 5.0, 6.0, 7.0],
+            'T10.PosY': [1.0, np.nan, np.nan, np.nan, 5.0, 6.0, 7.0],
+            'T10.PosZ': [1.0, np.nan, np.nan, np.nan, 5.0, 6.0, 6.0]})
+
+        self.statistics = pandas.DataFrame({'T10.PosX': [3, 3],
+                                            'T10.PosY': [3, 3],
+                                            'T10.PosZ': [3, 3]},
+                                           index=['# NA', 'Largest Gap']).T
+
+    def test_identify(self):
+        identifier = MissingMarkerIdentifier(self.with_constant)
+        assert_raises(ValueError, identifier.identify)
+
+        marker_columns = ['T10.PosX', 'T10.PosY', 'T10.PosZ']
+        identifier = \
+            MissingMarkerIdentifier(self.with_constant[marker_columns])
+        identified = identifier.identify()
+        compare_data_frames(identified, self.with_missing[marker_columns])
+
+        identifier = MissingMarkerIdentifier(self.with_constant)
+        identified = identifier.identify(columns=marker_columns)
+        compare_data_frames(identified, self.with_missing)
+
+    def test_statistics(self):
+
+        marker_columns = ['T10.PosX', 'T10.PosY', 'T10.PosZ']
+        identifier = \
+            MissingMarkerIdentifier(self.with_constant[marker_columns])
+        identifier.identify()
+        statistics = identifier.statistics()
+        compare_data_frames(statistics, self.statistics)
+
+        identifier = \
+            MissingMarkerIdentifier(self.with_constant[marker_columns])
+        assert_raises(StandardError, identifier.statistics)
 
 
 class TestSplineInterpolateOverMissing:
