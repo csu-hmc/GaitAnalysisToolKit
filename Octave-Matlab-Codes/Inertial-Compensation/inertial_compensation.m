@@ -42,6 +42,11 @@ function [comp_fp]=inertial_compensation(fpdata_cal,acceldata_cal,...
 %                                      [FP1XYZ MP1XYZ FP2XYZ MP2XYZ]
 %=========================================================================
 
+% Make the soder.m file available to this function.
+path_to_this_file = mfilename('fullpath');
+[directory_of_this_file, ~, ~] = fileparts(path_to_this_file);
+addpath([directory_of_this_file filesep '..' filesep 'soder'])
+
 p=size(fpdata_cal);
 Nframes2=p(1,1);
 

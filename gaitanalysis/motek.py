@@ -170,7 +170,6 @@ def spline_interpolate_over_missing(data_frame, abscissa_column, order=1,
             time = data_frame[abscissa_column]
             without_na = time_series.dropna().values
             time_at_valid = time[time_series.notnull()].values
-
             interpolate = InterpolatedUnivariateSpline(time_at_valid,
                                                        without_na, k=order)
             interpolated_values = interpolate(time[is_null].values)
@@ -219,11 +218,11 @@ class DFlowData(object):
     # the names could theorectically change, as they are selected by the
     # user. They are used to express the forces in the global reference
     # frame.
-    treadmill_markers = ['ROT_REF.PosX' 'ROT_REF.PosY' 'ROT_REF.PosZ'
-                         'ROT_C1.PosX' 'ROT_C1.PosY' 'ROT_C1.PosZ'
-                         'ROT_C2.PosX' 'ROT_C2.PosY' 'ROT_C2.PosZ'
-                         'ROT_C3.PosX' 'ROT_C3.PosY' 'ROT_C3.PosZ'
-                         'ROT_C4.PosX' 'ROT_C4.PosY' 'ROT_C4.PosZ']
+    treadmill_markers = ['ROT_REF.PosX', 'ROT_REF.PosY', 'ROT_REF.PosZ',
+                         'ROT_C1.PosX', 'ROT_C1.PosY', 'ROT_C1.PosZ',
+                         'ROT_C2.PosX', 'ROT_C2.PosY', 'ROT_C2.PosZ',
+                         'ROT_C3.PosX', 'ROT_C3.PosY', 'ROT_C3.PosZ',
+                         'ROT_C4.PosX', 'ROT_C4.PosY', 'ROT_C4.PosZ']
 
     cortex_sample_rate = 100  # Hz
     constant_marker_tolerance = 1e-16  # meters
@@ -340,6 +339,9 @@ class DFlowData(object):
         except KeyError:
             raise Exception('You must include relative file path to the ' +
                             'compensation file in {}.'.format(self.meta_yml_path))
+        except AttributeError:  # no meta
+            raise Exception('You must include a meta data file with a ' +
+                            'relative file path to the compensation file.')
         else:
             self.compensation_tsv_path = \
                 os.path.join(trial_directory,
@@ -588,11 +590,8 @@ class DFlowData(object):
         # and replace with NaN, only if the values are constant in all
         # coordinates of a marker.
 
-        marker_column_labels = \
-            self._marker_column_labels(self.mocap_column_labels)
-
         identifier = MissingMarkerIdentifier(data_frame)
-        data_frame = identifier.identify(columns=marker_column_labels)
+        data_frame = identifier.identify(columns=self.marker_column_labels)
 
         return data_frame
 
@@ -619,11 +618,10 @@ class DFlowData(object):
         """Returns the data frame with all missing markers replaced by some
         interpolated value."""
 
-
-        markers = self._marker_column_labels(self.mocap_column_labels)
-
-        data_frame = spline_interpolate_over_missing(data_frame, time_col,
-                                                     order=order)
+        data_frame = \
+            spline_interpolate_over_missing(data_frame, time_col,
+                                            order=order,
+                                            columns=self.marker_column_labels)
 
         return data_frame
 
@@ -784,8 +782,7 @@ class DFlowData(object):
         # reference frame for ease of future computations.
         mfile = os.path.abspath(os.path.join(os.path.split(__file__)[0],
                                              '..', 'Octave-Matlab-Codes',
-                                             'Inertial-Compensation',
-                                             'inertial_compensation.m'))
+                                             'Inertial-Compensation'))
         octave.addpath(mfile)
 
         forces = ['FP1.ForX', 'FP1.ForY', 'FP1.ForZ', 'FP1.MomX',
@@ -793,7 +790,8 @@ class DFlowData(object):
                   'FP2.ForZ', 'FP2.MomX', 'FP2.MomY', 'FP2.MomZ']
 
 
-        accelerometers = self._delsys_column_labels()[1]
+        # First four accelerometers.
+        accelerometers = self._delsys_column_labels()[1][:4 * 3]
 
         compensated_forces = \
             octave.inertial_compensation(calibration_data_frame[forces].values,
@@ -825,7 +823,7 @@ class DFlowData(object):
                 mocap_data_frame = \
                     self._interpolate_missing_markers(mocap_data_frame)
 
-            if self._compensation_needed:
+            if self._compensation_needed is True:
 
                 self._store_compensation_data_path()
 
@@ -835,7 +833,8 @@ class DFlowData(object):
 
                 if interpolate_markers is False:
                     identifier = MissingMarkerIdentifier(mocap_data_frame)
-                    mocap_data_frame = identifier.identify(columns=self.treadmill_markers)
+                    mocap_data_frame = \
+                        identifier.identify(columns=self.treadmill_markers)
 
                 mocap_data_frame = self._compensate_forces(unloaded_trial,
                                                            mocap_data_frame)

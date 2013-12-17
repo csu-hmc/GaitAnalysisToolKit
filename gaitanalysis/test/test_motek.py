@@ -12,12 +12,12 @@ import pandas
 from pandas.util.testing import assert_frame_equal
 from nose.tools import assert_raises
 import yaml
+from dtk.process import time_vector
 
 # local
 from ..motek import (DFlowData, spline_interpolate_over_missing,
                      low_pass_filter)
-from utils import compare_data_frames
-from dtk.process import time_vector
+from .utils import compare_data_frames
 
 # debugging
 try:
@@ -114,21 +114,17 @@ class TestDFlowData():
                             'T10.PosY',
                             'T10.PosZ']
 
-    cortex_analog_labels = ['FP1.ForX',
-                            'FP1.MomX',
-                            'Channel1.Anlg',
-                            'Channel2.Anlg']
+    cortex_force_labels = ['FP1.ForX', 'FP1.ForY', 'FP1.ForZ', 'FP1.MomX',
+                           'FP1.MomY', 'FP1.MomZ', 'FP2.ForX', 'FP2.ForY',
+                           'FP2.ForZ', 'FP2.MomX', 'FP2.MomY', 'FP2.MomZ']
+
+    cortex_analog_labels = ['Channel1.Anlg', 'Channel2.Anlg']
 
     dflow_hbm_labels = ['RKneeFlexion.Ang',
                         'RKneeFlexion.Mom',
                         'RKneeFlexion.Pow',
                         'R_PectoralisMajorTH1',
                         'L_RectusFemoris']
-
-    mocap_labels_without_hbm = (['TimeStamp', 'FrameNumber'] +
-                                cortex_marker_labels + cortex_analog_labels)
-
-    mocap_labels_with_hbm = mocap_labels_without_hbm + dflow_hbm_labels
 
     compensation_treadmill_markers = ['ROT_REF.PosX', 'ROT_REF.PosY',
                                       'ROT_REF.PosZ', 'ROT_C1.PosX',
@@ -139,11 +135,9 @@ class TestDFlowData():
                                       'ROT_C4.PosX', 'ROT_C4.PosY',
                                       'ROT_C4.PosZ']
 
-    compensation_force_labels = ['FP1.ForX', 'FP1.ForY', 'FP1.ForZ',
-                                 'FP1.MomX', 'FP1.MomY', 'FP1.MomZ',
-                                 'FP2.ForX', 'FP2.ForY', 'FP2.ForZ',
-                                 'FP2.MomX', 'FP2.MomY', 'FP2.MomZ']
+    all_marker_labels = compensation_treadmill_markers + cortex_marker_labels
 
+    # These are these are the XYZ components of the first 4 accelerometers.
     compensation_analog_labels = ["Channel13.Anlg", "Channel14.Anlg",
                                   "Channel15.Anlg", "Channel16.Anlg",
                                   "Channel17.Anlg", "Channel18.Anlg",
@@ -152,6 +146,14 @@ class TestDFlowData():
                                   "Channel23.Anlg", "Channel24.Anlg",
                                   "Channel25.Anlg", "Channel26.Anlg",
                                   "Channel27.Anlg", "Channel28.Anlg"]
+
+    mocap_labels_without_hbm = (['TimeStamp', 'FrameNumber'] +
+                                all_marker_labels +
+                                cortex_force_labels +
+                                cortex_analog_labels +
+                                compensation_analog_labels)
+
+    mocap_labels_with_hbm = mocap_labels_without_hbm + dflow_hbm_labels
 
     record_labels = ['Time', 'RightBeltSpeed', 'LeftBeltSpeed']
 
@@ -214,6 +216,10 @@ class TestDFlowData():
                                     "Channel27.Anlg": "Back_Right_AccY",
                                     "Channel28.Anlg": "Back_Right_AccZ",
                                 },
+                           'data-description':
+                               {
+                                    "ROT_REF.PosX": "A marker place on the rigid structure of the treadmill.",
+                               },
                            },
                  'subject': {
                              'id': 234,
@@ -274,19 +280,15 @@ class TestDFlowData():
                                            self.cortex_number_of_samples, 1),
                       }
 
-        for label in self.cortex_marker_labels:
+        for label in self.mocap_labels_with_hbm[2:]: # skip TimeStamp & FrameNumber
             mocap_data[label] = np.sin(mocap_data['TimeStamp'])
-
-        for label in self.cortex_analog_labels:
-            mocap_data[label] = np.cos(mocap_data['TimeStamp'])
-
-        for label in self.dflow_hbm_labels:
-            mocap_data[label] = np.cos(mocap_data['TimeStamp'])
 
         self.mocap_data_frame = pandas.DataFrame(mocap_data)
 
+        # Add "missing" values to the marker data.
         for j, index in enumerate(self.missing_marker_start_indices):
-            for signal in self.cortex_marker_labels:
+            for signal in (self.cortex_marker_labels +
+                self.compensation_treadmill_markers):
                 self.mocap_data_frame[signal][index:index + self.length_missing[j]] = \
                     self.mocap_data_frame[signal][index]
 
@@ -313,16 +315,16 @@ class TestDFlowData():
                                            self.cortex_number_of_samples, 1),
                       }
 
+        for label in self.cortex_force_labels:
+            compensation_data[label] = 0.5 * np.cos(compensation_data['TimeStamp'])
+
         for label in self.compensation_analog_labels:
             compensation_data[label] = np.cos(compensation_data['TimeStamp'])
-
-        for label in self.compensation_force_labels:
-            compensation_data[label] = 0.5 * np.cos(compensation_data['TimeStamp'])
 
         self.compensation_data_frame = pandas.DataFrame(compensation_data)
 
         cols = (["TimeStamp", 'FrameNumber'] +
-                self.compensation_force_labels +
+                self.cortex_force_labels +
                 self.compensation_analog_labels
                 )
 
@@ -517,6 +519,8 @@ class TestDFlowData():
         dflow_data._store_compensation_data_path()
         unloaded_trial = dflow_data._load_compensation_data()
 
+        # TODO : Impelment a test.
+
         #assert len(set(unloaded_trial.columns).diff() == 0
 
     def test_mocap_column_labels(self):
@@ -531,7 +535,8 @@ class TestDFlowData():
         all_labels = dflow_data.mocap_column_labels
         labels = dflow_data._marker_column_labels(all_labels)
 
-        assert labels == self.cortex_marker_labels
+        assert labels == (self.compensation_treadmill_markers +
+                          self.cortex_marker_labels)
 
     def test_hbm_column_labels(self):
 
@@ -551,8 +556,10 @@ class TestDFlowData():
         identified = dflow_data._identify_missing_markers(data_frame)
 
         for i, index in enumerate(self.missing_marker_start_indices):
-            for suffix in ['.PosX', '.PosY', '.PosZ']:
-                assert all(identified['T10' + suffix][index + 1:index + self.length_missing[i]].isnull())
+            for label in (self.compensation_treadmill_markers +
+                          self.cortex_marker_labels):
+                assert all(identified[label][index + 1:index +
+                                             self.length_missing[i]].isnull())
 
     def test_generate_cortex_time_stamp(self):
         dflow_data = DFlowData(self.path_to_mocap_data_file)
@@ -562,26 +569,6 @@ class TestDFlowData():
         testing.assert_allclose(data['Cortex Time'], expected_time)
 
     def test_interpolate_missing_markers(self):
-        dflow_data = DFlowData(self.path_to_mocap_data_file)
-
-        with_missing = pandas.DataFrame({
-            'TimeStamp': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
-            'FP1.ForX': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
-            'T10.PosX': [1.0, np.nan, np.nan, np.nan, 5.0, 6.0, 7.0],
-            'T10.PosY': [1.0, np.nan, np.nan, np.nan, 5.0, 6.0, 7.0],
-            'T10.PosZ': [1.0, np.nan, np.nan, np.nan, 5.0, 6.0, 7.0]})
-
-        interpolated = dflow_data._interpolate_missing_markers(with_missing)
-
-        without_missing = pandas.DataFrame({
-            'TimeStamp': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
-            'FP1.ForX': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
-            'T10.PosX': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
-            'T10.PosY': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
-            'T10.PosZ': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]})
-
-        assert not pandas.isnull(interpolated).any().any()
-        assert_frame_equal(interpolated, without_missing)
 
         dflow_data = DFlowData(self.path_to_mocap_data_file)
         mocap_data_frame = dflow_data._load_mocap_data(ignore_hbm=True)
@@ -590,15 +577,10 @@ class TestDFlowData():
 
         assert not pandas.isnull(interpolated).any().any()
 
-        testing.assert_allclose(interpolated['T10.PosX'].values,
-                                np.sin(interpolated['TimeStamp']).values,
-                                atol=1e-3)
-        testing.assert_allclose(interpolated['T10.PosY'].values,
-                                np.sin(interpolated['TimeStamp']).values,
-                                atol=1e-3)
-        testing.assert_allclose(interpolated['T10.PosZ'].values,
-                                np.sin(interpolated['TimeStamp']).values,
-                                atol=1e-3)
+        for label in (self.compensation_treadmill_markers +
+                self.cortex_marker_labels):
+            testing.assert_allclose(interpolated[label].values,
+                    np.sin(interpolated['TimeStamp']).values, atol=1e-3)
 
     def test_load_mocap_data(self):
         dflow_data = DFlowData(self.path_to_mocap_data_file)
@@ -617,34 +599,34 @@ class TestDFlowData():
 
     def test_extract_events_from_record_file(self):
         #This checks with a meta.yml file
-        directory=os.path.split(__file__)[0]
-        data=DFlowData(record_tsv_path=directory+'/data/example_extract_events_from_record_module.txt',
-                             meta_yml_path=directory+'/data/meta_events_example.yml')
+        directory = os.path.split(__file__)[0]
+        data = DFlowData(record_tsv_path=directory + '/data/example_extract_events_from_record_module.txt',
+                             meta_yml_path=directory + '/data/meta_events_example.yml')
         data._extract_events_from_record_file()
 
-        expected_time_map={'ForcePlateZeroing': (208.038250,228.046535),
-                       'NormalWalking':(228.046535,288.051670),
-                       'TreadmillPerturbation':(288.051670,528.056120),
-                       'Both':(528.056120,768.060985),
-                       'Normal':(768.060985,768.064318)}
+        expected_time_map = {'ForcePlateZeroing': (208.038250, 228.046535),
+                             'NormalWalking': (228.046535, 288.051670),
+                             'TreadmillPerturbation': (288.051670, 528.056120),
+                             'Both': (528.056120, 768.060985),
+                             'Normal': (768.060985, 768.064318)}
 
-        for key,(start,end) in expected_time_map.items():
-            assert abs(data.events[key][0]-start)<1e-16
-            assert abs(data.events[key][1]-end)<1e-16
+        for key, (start, end) in expected_time_map.items():
+            assert abs(data.events[key][0] - start) < 1e-16
+            assert abs(data.events[key][1] - end) < 1e-16
 
         #This checks without a meta.yml file
-        data=DFlowData(record_tsv_path=directory+'/data/example_extract_events_from_record_module.txt')
+        data = DFlowData(record_tsv_path=directory + '/data/example_extract_events_from_record_module.txt')
         data._extract_events_from_record_file()
 
-        expected_time_map={'A': (208.038250,228.046535),
-                       'B':(228.046535,288.051670),
-                       'C':(288.051670,528.056120),
-                       'D':(528.056120,768.060985),
-                       'E':(768.060985,768.064318)}
+        expected_time_map = {'A': (208.038250, 228.046535),
+                             'B': (228.046535, 288.051670),
+                             'C': (288.051670, 528.056120),
+                             'D': (528.056120, 768.060985),
+                             'E': (768.060985, 768.064318)}
 
-        for key,(start,end) in expected_time_map.items():
-            assert abs(data.events[key][0]-start)<1e-16
-            assert abs(data.events[key][1]-end)<1e-16
+        for key, (start, end) in expected_time_map.items():
+            assert abs(data.events[key][0] - start) < 1e-16
+            assert abs(data.events[key][1] - end) < 1e-16
 
     def test_load_record_data(self):
         dflow_data = DFlowData(record_tsv_path=self.path_to_record_data_file)
@@ -677,7 +659,7 @@ class TestDFlowData():
 
         assert not pandas.isnull(data.data).any().any()
         assert (data._marker_column_labels(data.mocap_column_labels) ==
-                self.cortex_marker_labels)
+                self.all_marker_labels)
         expected_columns = self.mocap_labels_without_hbm + \
             self.record_labels + ['Cortex Time', 'D-Flow Time']
         for col in data.data.columns:
@@ -699,7 +681,7 @@ class TestDFlowData():
 
         assert not pandas.isnull(data.data).any().any()
         assert (data._marker_column_labels(data.mocap_column_labels) ==
-                self.cortex_marker_labels)
+                self.all_marker_labels)
         expected_columns = self.mocap_labels_without_hbm + ['Cortex Time',
                                                             'D-Flow Time']
         for col in data.data.columns:
@@ -749,7 +731,7 @@ class TestDFlowData():
 
         assert not pandas.isnull(data.data).any().any()
         assert (data._marker_column_labels(data.mocap_column_labels) ==
-                self.cortex_marker_labels)
+                self.all_marker_labels)
         expected_columns = self.mocap_labels_without_hbm + ['Cortex Time',
                                                             'D-Flow Time']
         for col in data.data.columns:
