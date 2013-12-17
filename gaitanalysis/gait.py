@@ -563,3 +563,5 @@ def gait_landmarks_from_accel(time, right_accel, left_accel, do_plot=False):
     # TODO: Seperate heelstrikes from toe off
     right_foot_strikes = time[peak_detection(filter(right_accel))]
     left_foot_strikes =  time[peak_detection(filter(left_accel))]
+    
+    return right_foot_strikes, left_foot_strikes, right_toe_offs, left_toe_offs
