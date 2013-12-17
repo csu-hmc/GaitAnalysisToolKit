@@ -554,10 +554,12 @@ def gait_landmarks_from_accel(time, right_accel, left_accel, do_plot=False):
         ddx = process(time, dx, method='combination')
         b = ddx != -1; ddx[b] = 0
         
+        # TODO: Is this the best width array??
         peak_indices = find_peaks_cwt(ddx, np.arange(1,10))
         return peak_indices
     
     # ----------------
     
+    # TODO: Seperate heelstrikes from toe off
     right_foot_strikes = time[peak_detection(filter(right_accel))]
     left_foot_strikes =  time[peak_detection(filter(left_accel))]
