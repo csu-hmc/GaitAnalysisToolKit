@@ -526,19 +526,38 @@ def gait_landmarks_from_accel(time, right_accel, left_accel, do_plot=False):
     # Helper functions
     # ----------------
     
-    def filter(x):
+    def filter(data):
+        from scipy.signal import blackman, firwin, filtfilt
+        
         # 10 Hz highpass
-        # blackman window
-        # rectify
+        n = 127; # filter order
+        Wn = 10 / (sample_rate/2) # cut-off frequency
+        window = blackman(n)
+        b = firwin(n+1, Wn, window='blackman', pass_zero=False)
+        data = filtfilt(b, 1, data)
+        
+        data = abs(data) # rectify signal
+        
         # 3 Hz lowpass
-        return y
+        Wn = 3 / (sample_rate/2)
+        b = firwin(n+1, Wn, window='blackman')
+        data = filtfilt(b, 1, data)
+        
+        return data 
         
     def peak_detection(x):
+        from scipy.signal import find_peaks_cwt
+        
         dx = process(time, x, method='combination')
         b = dx < 0; dx[b] = -1
         b = dx > 0; dx[b] = 1
         ddx = process(time, dx, method='combination')
         b = ddx != -1; ddx[b] = 0
-        return
+        
+        peak_indices = find_peaks_cwt(ddx, np.arange(1,10))
+        return peak_indices
     
     # ----------------
+    
+    right_foot_strikes = time[peak_detection(filter(right_accel))]
+    left_foot_strikes =  time[peak_detection(filter(left_accel))]
