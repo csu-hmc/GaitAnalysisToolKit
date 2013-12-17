@@ -492,3 +492,53 @@ def gait_landmarks_from_grf(time, right_grf, left_grf,
         plt.show()
 
     return right_foot_strikes, left_foot_strikes, right_toe_offs, left_toe_offs
+    
+def gait_landmarks_from_accel(time, right_accel, left_accel, do_plot=False):
+    """
+    Obtain right and left foot strikes from the time series data of accelerometers placed on the heel.
+
+    Parameters
+    ==========
+    time : array_like, shape(n,)
+        A monotonically increasing time array.
+    right_accel : array_like, shape(n,)
+        The vertical component of accel data for the right foot.
+    left_accel : str, shape(n,)
+        Same as above, but for the left foot.
+    do_plot : bool, optional (default: False)
+        Create plots of the detected gait landmarks on top of the vertical
+        ground reaction forces.
+    min_time : float, optional
+        If set, only consider times greater than `min_time`.
+    max_time : float, optional
+        If set, only consider times greater than `max_time`.
+
+    Returns
+    =======
+    right_foot_strikes : np.array
+        All times at which a right foot heelstrike is determined
+    left_foot_strikes : np.array
+        Same as above, but for the left foot.
+    """
+    
+    sample_rate = 1.0 / (time[1] - time[0])
+    
+    # Helper functions
+    # ----------------
+    
+    def filter(x):
+        # 10 Hz highpass
+        # blackman window
+        # rectify
+        # 3 Hz lowpass
+        return y
+        
+    def peak_detection(x):
+        dx = process(time, x, method='combination')
+        b = dx < 0; dx[b] = -1
+        b = dx > 0; dx[b] = 1
+        ddx = process(time, dx, method='combination')
+        b = ddx != -1; ddx[b] = 0
+        return
+    
+    # ----------------
