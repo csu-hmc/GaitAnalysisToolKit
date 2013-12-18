@@ -29,6 +29,8 @@ Inertial Compensation
    Compensates force plate forces and moments for inertial effects and
    re-expresses the forces and moments in the camera reference frame.
 
+I'm testing this out, see what's up!
+
 Installation
 ============
 
