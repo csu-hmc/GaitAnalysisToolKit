@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# standard library
+import os
+
 # external libraries
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 import pandas
 from dtk import process
+from oct2py import octave
 
 # debugging
 try:
@@ -137,6 +141,112 @@ class WalkingData(object):
         # data.index.values.astype(float)*1e-9
 
         self.raw_data = data_frame
+
+    def inverse_dynamics_2d(self, left_leg_markers, right_leg_markers,
+                            left_leg_forces, right_leg_forces, body_mass,
+                            low_pass_cutoff, xandy):
+        """Computes the hip, knee, and ankle flexion angles, angular rates,
+        joint moments, and joint forces and adds them as columns to the data
+        frame.
+
+        Parameters
+        ----------
+        left_leg_markers : list of strings
+            The names of the columns that give the x and y marker
+            coordinates for six markers.
+        right_leg_markers : list of strings
+            The names of the columns that give the x and y marker
+            coordinates for six markers.
+        left_leg_forces : list of strings
+            The names of the columns of the ground reaction forces and
+            moments.
+        right_leg_forces : list of strings
+            The names of the columns of the ground reaction forces and
+            moments.
+        body_mass : float
+            The mass in kilograms of the subject.
+        low_pass_cutoff : float
+            The cutoff frequency in hertz.
+        xandy : tuple of strings
+            A mapping from the data's coordinate system to this one.
+            (-Z, X)
+
+        Notes
+        ------
+
+        Coordinate system:
+
+        X is forward (direction of walking), Y is up
+
+        Markers:
+            1. Shoulder
+            2. Greater trochanter
+            3. Lateral epicondyle of knee
+            4. Lateral malleolus
+            5. Heel (placed at same height as marker 6)
+            6. Head of 5th metatarsal
+
+        """
+        mfile = os.path.abspath(os.path.join(os.path.split(__file__)[0],
+                                             '..', 'Octave-Matlab-Codes',
+                                             '2D-Inverse-Dynamics'))
+        octave.addpath(mfile)
+
+        options = {'freq': low_pass_cutoff}
+
+        time = self.index.values.astype(float())
+
+        xsign, ysign = [-1.0 if cor[0] == '-' else 1.0 for cor in xandy]
+
+        markers = [left_leg_markers, right_leg_markers]
+        forces = [left_leg_markers, right_leg_markers]
+
+        side_labels = ['Left', 'Right']
+        joint_labels = ['Hip', 'Knee', 'Ankle']
+        # TODO : Let user pass in custom 'X' and 'Y' because their
+        # coordinate system may be different.
+        sign_labels = ['Flexion', 'Flexion', 'PlantarFlexion', xandy]
+        dynamic_labels = ['Angle', 'Rate', 'Moment', 'Force']
+        scale_factors = [1.0, 1.0, body_mass, body_mass]
+
+        for side_label, markers, forces in zip(side_labels, markers, forces):
+
+            # TODO : Need a way to specify negative or positive for these
+            # values because the coordinate system's may not match in sense.
+            marker_array = self.raw_data[markers].values
+            force_array = self.raw_data[forces].values / body_mass
+
+            marker_array[:, ::2] = xsign * marker_array[:, ::2]
+            marker_array[:, ::2] = ysign * marker_array[:, ::2]
+
+            dynamics = octave.leg2d(time, marker_array, force_array,
+                                    options)
+
+            fours = zip(dynamics, sign_labels, dynamic_labels,
+                        scale_factors)
+
+            for array, sign_label, dynamic_label, scale_factor in fours:
+
+                if isinstance(sign_label, tuple):
+                    a = array[:2], array[2:4], array[4:]
+
+                    for joint_label, vectors in zip(joint_labels, a):
+
+                        for slab, vector in zip(sign_label, vectors.T):
+
+                            label = '.'.join([side_label, joint_label, slab,
+                                              dynamic_label])
+
+                            self.raw_data[label] = scale_factor * vector
+
+                else:
+
+                    for joint_label, vector in zip(joint_labels, array.T):
+
+                        label = '.'.join([side_label, joint_label,
+                                          sign_label, dynamic_label])
+
+                        self.raw_data[label] = scale_factor * vector
 
     def grf_landmarks(self, right_vertical_grf_col_name,
                       left_vertical_grf_col_name, **kwargs):
