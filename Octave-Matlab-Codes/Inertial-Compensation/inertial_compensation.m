@@ -1,6 +1,6 @@
 function [comp_fp]=inertial_compensation(fpdata_cal,acceldata_cal,...
                                          marker_cor,fpdata_cor,...
-                                          acceldata_cor) 
+                                         acceldata_cor) 
                                       
 %=========================================================================
 %FUNCTION inertial_compensation:
@@ -18,7 +18,6 @@ function [comp_fp]=inertial_compensation(fpdata_cal,acceldata_cal,...
 %Inputs:
 %--------
 %  ~~Unweighted Treadmill (Calibration)~~
-%      time_cal      (Nsamples x 1)    Time stamps
 %      fpdata_cal    (Nsamples x 12)   3D force plate data (forces/moments)
 %                                      for both force plates in the form:
 %                                      [FP1XYZ MP1XYZ FP2XYZ MP2XYZ]
@@ -26,7 +25,6 @@ function [comp_fp]=inertial_compensation(fpdata_cal,acceldata_cal,...
 %                                      accelerometers in the form:
 %                                      [A1XYZ A2XYZ A3XYZ A4XYZ]
 %  ~~Weighted Treadmill (Correction)~~
-%      time_cor      (Nsamples x 1)    Time stamps
 %      marker_cor    (Nsamples x 15)   XYZ positions of 5 reference plane
 %                                      markers
 %      fpdata_cor    (Nsamples x 12)   3D force plate data (forces/moments)
@@ -137,30 +135,25 @@ C2=D\B2;
     FMP2_corr=reshape(B2cr,6,Nframes2)';
     FP1_corr=FMP1_corr(:,1:3); MP1_corr=FMP1_corr(:,4:6);
     FP2_corr=FMP2_corr(:,1:3); MP2_corr=FMP2_corr(:,4:6);
-    FP1_p=reshape(FP1_corr(:,1:3)',3*Nframes2,1);
-    MP1_p=reshape(MP1_corr(:,1:3)',3*Nframes2,1);
-    FP2_p=reshape(FP2_corr(:,1:3)',3*Nframes2,1);
-    MP2_p=reshape(MP2_corr(:,1:3)',3*Nframes2,1);
+    FP1_p=reshape(FP1_corr(:,1:3)',3,1,Nframes2);
+    MP1_p=reshape(MP1_corr(:,1:3)',3,1,Nframes2);
+    FP2_p=reshape(FP2_corr(:,1:3)',3,1,Nframes2);
+    MP2_p=reshape(MP2_corr(:,1:3)',3,1,Nframes2);
+    
 %Determining the R and P Matrices
-    R=[]; xpos=[]; RMS=[];
+    R=zeros(3,3,Nframes2); xpos=zeros(3,1,Nframes2);
     for i=1:Nframes2
          y=[marker_cor(i,1:3); marker_cor(i,4:6); marker_cor(i,7:9);...
             marker_cor(i,10:12); marker_cor(i,13:15)];
-         [R1,xpos1,RMS1]=soder(x,y);
-         R=[R;R1];
-         xpos=[xpos;xpos1];
-         RMS=[RMS;RMS1];
+         [R1,xpos1]=soder(x,y);
+          R(:,:,i)=R1;
+          xpos(:,:,i)=xpos1;
     end
 %Rotating the Force and Moment Vectors
-    FP1=[];MP1=[];FP2=[];MP2=[];
-    for i=1:3:Nframes2*3;
-         FP1r=R(i:i+2,:)*FP1_p(i:i+2,:);
-         MP1r=(cross(xpos(i:i+2,:),FP1r))+(R(i:i+2,:)*MP1_p(i:i+2,:));
-         FP2r=R(i:i+2,:)*FP2_p(i:i+2,:);
-         MP2r=(cross(xpos(i:i+2,:),FP2r))+(R(i:i+2,:)*MP2_p(i:i+2,:));
-         FP1=[FP1;FP1r]; MP1=[MP1;MP1r];
-         FP2=[FP2;FP2r]; MP2=[MP2;MP2r];
-    end
+    FP1=mmat(R,FP1_p);
+    MP1=cross(xpos,FP1,1)+mmat(R,MP1_p);
+    FP2=mmat(R,FP2_p);
+    MP2=cross(xpos,FP2,1)+mmat(R,MP2_p);
 
 %=========================================================================
 %Generating Output
