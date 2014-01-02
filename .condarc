@@ -7,11 +7,11 @@ channels:
   - http://repo.continuum.io/pkgs/free
 
 # directory in which conda root is located (used by `conda init`)
-root_dir: ~/conda
+root_dir: /home/travis/conda
 
 # directories in which environments are located
 envs_dirs:
-  - ~/my-envs
+  - /home/travis/envs
 
 # implies always using the --yes option whenever asked to proceed
 always_yes: True
