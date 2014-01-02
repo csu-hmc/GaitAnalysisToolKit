@@ -1,20 +1,15 @@
-language: python
-python:
-  - "2.7"
-virtualenv:
-  system_site_packages: true
+language: c
+notifications:
+  email: false
 before_install:
-  - sudo apt-get install -y -qq python-setuptools python-numpy python-scipy python-matplotlib python-nose python-coverage
-  - pip install cython pyyaml
-  # I don't think pip will work for installing Pandas because it doesn't build
-  # from source. It uses prebuilt Cython modules that link to a different NumPy
-  # version, so we compile it ourselves.
-  - git clone git://github.com/pydata/pandas.git
-  - cd pandas && git checkout v0.12.0 && python setup.py install && cd ..
-  - pip freeze
-install:
-  # DynamicistToolKit is pulled in during the following command, instead of
-  # being preinstalled like the other dependencies.
-  - python setup.py install
+  - sudo apt-get install python-pip
+  - sudo pip install -U pip # update pip to latest version
+  - sudo pip install conda # install conda system wide
+  - conda create --yes -n gait
+  - conda install --yes -n gait numpy=1.6 scipy=0.10 matplotlib=1.1 pandas=0.12
+  - conda install --yes -n gait pyyaml DynamicistToolKit=0.3.0 nose=1.3.0 coverage
+  - source activate gait
+  - conda info
+  - conda list
 script: nosetests -v --with-coverage --cover-package=gaitanalysis
 after_success: coveralls
