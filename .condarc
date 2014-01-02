@@ -1,0 +1,28 @@
+# This is a sample .condarc file
+
+# channel locations. These override conda defaults, i.e., conda will
+# search *only* the channels listed here, in the order given. Use "default" to
+# automatically include all default channels.
+channels:
+  - http://repo.continuum.io/pkgs/free
+
+# directory in which conda root is located (used by `conda init`)
+root_dir: ~/conda
+
+# directories in which environments are located
+envs_dirs:
+  - ~/my-envs
+
+# implies always using the --yes option whenever asked to proceed
+always_yes: True
+
+# change ps1 when using activate (default True)
+changeps1: True
+
+# use pip when installing and listing packages (default True)
+use_pip: True
+
+# when creating new environments add these packages by default
+create_default_packages:
+  - python
+  - pip
