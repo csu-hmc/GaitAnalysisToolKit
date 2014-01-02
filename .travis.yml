@@ -6,9 +6,9 @@ before_install:
   - sudo pip install -U pip # update pip to latest version
   - sudo pip install conda # install conda system wide
   - sudo conda init
-  - conda create --yes -n gait numpy=1.6 scipy=0.11 matplotlib=1.1 pandas=0.12 pyyaml nose=1.3.0 coverage pip
+  - conda create --yes -n gait pip numpy=1.6 scipy=0.11 matplotlib=1.1 pandas=0.12
   - source activate gait
-  - pip install DynamicistToolKit==0.3.0 python-coveralls
+  - pip install DynamicistToolKit==0.3.0 python-coveralls coverage pyyaml nose==1.3.0
   - conda info
   - conda list
 script: nosetests -v --with-coverage --cover-package=gaitanalysis
