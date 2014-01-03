@@ -5,6 +5,7 @@
 # automatically include all default channels.
 channels:
   - http://repo.continuum.io/pkgs/free
+  - https://conda.binstar.org/moorepants
 
 # directory in which conda root is located (used by `conda init`)
 root_dir: /home/travis/conda
