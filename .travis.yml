@@ -3,6 +3,7 @@ notifications:
   email: false
 before_install:
   - cp .condarc /home/travis/.condarc
+  - mkdir /home/travis/conda
   - sudo apt-get install python-pip
   - sudo pip install -U pip # update pip to latest version
   - sudo pip install conda # install conda system wide
