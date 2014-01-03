@@ -9,6 +9,7 @@ before_install:
   - sudo pip install conda # install conda system wide
   - conda init
   - conda create --yes -n gait pip numpy=1.7 scipy=0.10.1 matplotlib=1.1 pandas=0.12
+  - rm /home/travis/envs/_test/lib/libgfortran*
   - export PATH=/home/travis/envs/gait/bin:$PATH
   - pip install --use-mirrors DynamicistToolKit==0.3.0 python-coveralls coverage pyyaml nose==1.3.0
   - conda info
