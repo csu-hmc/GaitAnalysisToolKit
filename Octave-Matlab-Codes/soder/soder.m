@@ -1,55 +1,89 @@
-% soder.m: Matlab function to determine rigid body rotation & translation
-% From:
-% I. Soederqvist and P.A. Wedin (1993) Determining the movement of the skeleton
-%   using well-configured markers. J. Biomech. 26:1473-1477.
-% Same algorithm is described in:
+function [R, d, rms] = soder(x, y)
+% function [R, d, rms] = soder(x, y)
+%
+% Returns the rotation matrix and translation vector between two point
+% clouds of markers in 3D space that are assumed to be attached to the same
+% rigid body in two different positions and orientations.
+%
+% Input
+% -----
+% x: double, size(n, 3)
+%   The 3-D cartesion marker coordinates in the first position where the
+%   columns are the x, y, and z coordinates for each marker.
+% y: double, size(n, 3)
+%   The 3-D cartesion marker coordinates in the second position where the
+%   columns are the x, y, and z coordinates for each marker.
+%
+% Output
+% ------
+% R: double, size(3, 3)
+%   This rotation matrix is defined such that va = R * vb where va is the
+%   vector, v, expressed in the first reference frame and vb is the same
+%   vector expressed in the second reference frame.
+% d: double, size(3, 1)
+%   The translation vector in the first reference frame.
+% rms: double
+%   The root mean square fit error of the rigid body model.
+%
+% Notes
+% -----
+%
+% The rigid body model is: y = R * x + d
+%
+% This alogrithm is explicitly taken from:
+%
+% I. Soederqvist and P.A. Wedin (1993) Determining the movement of the
+% skeleton using well-configured markers. J. Biomech. 26:1473-1477.
+%
+% But the same algorithm is described in:
+%
 % J.H. Challis (1995) A prodecure for determining rigid body transformation
-%   parameters, J. Biomech. 28, 733-737.
+% parameters, J. Biomech. 28, 733-737.
+%
 % The latter also includes possibilities for scaling, reflection, and
 % weighting of marker data.
 %
-% Written by Ron Jacobs (R.S. Dow Neurological Institute, Porland OR),
-% adapted by Ton van den Bogert (University of Calgary).
-%
-% Input:
-% x: 3-D marker coordinates in position 1 (3 columns, one row for each marker)
-% y: 3-D marker coordinates in position 2 (same format)
-%
-% Output:
-% R: rotation matrix
-% d: translation vector
-% rms: the root mean square fit error of the rigid body model
-%
-% the rigid body model is: y = R*x + d
-%
-function[R,q,rms]=soder(x,y)
+% This function was Written by Ron Jacobs (R.S. Dow Neurological Institute,
+% Porland OR) and adapted by Ton van den Bogert (University of Calgary). It
+% was further updated by Jason K. Moore (Unversity of Cleveland) in 2014.
 
-[nmarkers,ndimensions]=size(x);
-% we could give an error message if ndimensions is not 3
+[nmarkers, ndimensions] = size(x);
 
-mx=mean(x);
-my=mean(y);
-
-% construct matrices A and B, subtract the mean so there is only rotation
-for i=1:nmarkers,
-  A(i,:)=x(i,:)-mx;
-  B(i,:)=y(i,:)-my;
+if size(x, 1) ~= size(y, 1)
+    error('x and y must have the same number of markers.')
 end
-A = A';
-B = B';
 
-% The singular value decomposition to calculate R with det(R)=1
-C=B*A';
-[P,T,Q]=svd(C);
-R=P*diag([1 1 det(P*Q')])*Q';
+if size(x, 2) ~= 3 || size(y, 2) ~= 3
+    error('x and y must have three coordinates for each marker.')
+end
 
-% Calculate the translation vector from the centroid of all markers
-q=my'-R*mx';
+% x: n x 3
+% y: n x 3
+
+% This is the mean position of all markers in each reference frame.
+mx = mean(x); % mx: 1 x 3
+my = mean(y); % mx: 1 x 3
+
+% Subtract the mean so that markers are now centered at the origin of each
+% reference frame. Note: uses array broadcasting.
+A = x - mx; % A: n x 3
+B = y - my; % B: n x 3
+
+% Use singular value decomposition to calculate the rotation matrix, R, with
+% det(R) = 1.
+
+[P, T, Q] = svd(B' * A); % 3 x 3
+
+R = P * diag([1,  1, det(P * Q')]) * Q'; % 3 x 3
+
+% Calculate the translation vector from the centroid of all markers. d is
+% expressed in the same frame as y, i.e. the global reference frame.
+d = my' - R * mx'; % 3 x 1
 
 % calculate RMS value of residuals
 sumsq = 0;
 for i=1:nmarkers
-  ypred = R*x(i,:)' + q;
-  sumsq = sumsq + norm(ypred-y(i,:)')^2;
+  ypred = R * x(i, :)' + d;
+  sumsq = sumsq + norm(ypred - y(i, :)')^2;
 end
-rms = sqrt(sumsq/3/nmarkers);
+rms = sqrt(sumsq/ 3 / nmarkers);
