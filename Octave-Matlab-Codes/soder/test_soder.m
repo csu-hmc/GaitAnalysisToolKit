@@ -52,14 +52,12 @@ end
 % translations vectors given the marker trajectories.
 translation = zeros(3, num_frames);
 rotation = zeros(3, 3, num_frames);
-tic()
 for i = 1:num_frames
     [R, q, ~] = soder(marker_trajectories(:, :, 1),
                       marker_trajectories(:, :, i));
     rotation(:, :, i) = R;
     translation(:, i) = q;
 end
-toc()
 
 assert_rotation = all((rotation - expected_rotation) < 1e-12);
 assert_translation = all((translation - expected_translation) < 1e-12);
