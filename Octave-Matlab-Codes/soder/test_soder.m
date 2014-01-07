@@ -1,4 +1,4 @@
-%function assert = test_soder()
+function assert = test_soder()
 
 num_frames = 50; % n
 num_markers = 5; % m
@@ -8,9 +8,9 @@ frequency = 0.1 * 2 * pi;
 
 % Create three Euler angles which vary with time.
 % n x 3
-euler_angles = [sin(frequency .* time);
-                cos(frequency .* time);
-                2 * sin(frequency .* time)]';
+euler_angles = [0.5 * sin(frequency .* time);
+                1.0 * sin(frequency .* time);
+                2.0 * sin(frequency .* time)]';
 
 s = sin(euler_angles);
 c = cos(euler_angles);
@@ -35,9 +35,7 @@ marker_initial_vectors_in_local_frame = rand(3, num_markers); % 3 x m
 
 % The location of the marker set in the global reference frame varies with
 % time in a simple linear fashion, size: 3 x n.
-expected_translation = [1.0 * time;
-                        2.0 * time;
-                        3.0 * time];
+expected_translation = bsxfun(@times, [1.0; 2.0; 3.0], time);
 
 % We now can express the vector to each marker in the global reference frame
 % as the markers translate and rotate through time.
@@ -54,13 +52,17 @@ end
 % translations vectors given the marker trajectories.
 translation = zeros(3, num_frames);
 rotation = zeros(3, 3, num_frames);
-for i = 2:num_frames
-    [R, q, ~] = soder(marker_trajectories(:, :, i - 1),
+tic()
+for i = 1:num_frames
+    [R, q, ~] = soder(marker_trajectories(:, :, 1),
                       marker_trajectories(:, :, i));
     rotation(:, :, i) = R;
     translation(:, i) = q;
 end
+toc()
 
-assert_rotation = rotation == expected_rotation;
-assert_translation = translation == expected_translation;
+assert_rotation = all((rotation - expected_rotation) < 1e-12);
+assert_translation = all((translation - expected_translation) < 1e-12);
 assert = assert_translation && assert_rotation;
+
+% TODO : Test the RMS.
