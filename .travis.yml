@@ -5,7 +5,7 @@ virtualenv:
   system_site_packages: true
 before_install:
   - sudo apt-get install -y -qq python-setuptools python-numpy python-scipy python-matplotlib python-nose python-coverage
-  - pip install cython pyyaml
+  - pip install cython pyyaml python-coveralls
   # I don't think pip will work for installing Pandas because it doesn't build
   # from source. It uses prebuilt Cython modules that link to a different NumPy
   # version, so we compile it ourselves.
