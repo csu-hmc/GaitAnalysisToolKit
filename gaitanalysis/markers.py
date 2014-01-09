@@ -153,8 +153,6 @@ def soederkvist(first_positions, second_positions):
         # n x 3 x 3
         rotations = matrix_multiply(matrix_multiply(P, I), Q)
 
-    # The last two columns are switched for some reason.
-
     # n x 3 = squeeze(n x 3 x 1 - n x 3 x 3 * n x 3 x 1)
     translations = np.squeeze(np.expand_dims(my, 2) -
         matrix_multiply(rotations, np.expand_dims(mx, 2)))
