@@ -11,7 +11,7 @@ import pandas
 from scipy.interpolate import InterpolatedUnivariateSpline
 import yaml
 from dtk import process
-#from oct2py import octave
+from oct2py import octave
 
 # debugging
 try:
@@ -929,26 +929,6 @@ class DFlowData(object):
         new_record['Time'] = self.cortex_time
 
         return pandas.DataFrame(new_record)
-
-    def _(self, data_frame):
-        """
-        There is a time delay between accelerometer and force plate signals.
-        Assuming the accelerometer signals are delayed 72ms
-        """
-        def nearest_index(array, val):
-            return np.abs(array - val).argmin()
-
-        delay_time = .072
-        data_frame['D-Flow Time'][0] + delay_time
-
-        delay_index = nearest_index(data_frame['D-Flow Time'][0].values,
-                                    data_frame['D-Flow Time'][0].values + delay_time)
-
-        for channel in dataframe.columns:
-            if ('Acc' in channel) or ('EMG' in channel):
-                dataframe[channel] = dataframe[channel].shift(delay_index)
-
-        return
 
     def _compensate_forces(self, calibration_data_frame, data_frame):
         """Computes the forces and moments which are due to the lateral and
