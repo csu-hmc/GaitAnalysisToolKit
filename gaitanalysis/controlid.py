@@ -11,6 +11,9 @@ import pandas
 from scipy import sparse
 from dtk import process
 
+# local
+from .utils import _percent_formatter
+
 # debugging
 try:
     from IPython.core.debugger import Tracer
@@ -640,7 +643,7 @@ class SimpleControlSolver(object):
 
         return axes
 
-    def plot_gains(self, gains, gain_variance):
+    def plot_gains(self, gains, gain_variance, y_scale_function=None):
         """Plots the identified gains versus percentage of the gait cycle.
 
         Parameters
@@ -649,6 +652,9 @@ class SimpleControlSolver(object):
             The estimated gain matrices for each time step.
         gain_variance : ndarray, shape(n, q, p)
             The variance of the estimated gain matrices for each time step.
+        y_scale_function : function, optional, default=None
+            A function that returns the portion of a control and sensor
+            label that can be used for scaling the y axes.
 
         Returns
         =======
@@ -661,7 +667,7 @@ class SimpleControlSolver(object):
 
         n, q, p = gains.shape
 
-        fig, axes = plt.subplots(q, p, sharex=True, sharey=True)
+        fig, axes = plt.subplots(q, p, sharex=True)
 
         percent_of_gait_cycle = \
             self.identification_data.iloc[0].index.values.astype(float)

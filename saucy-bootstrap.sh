@@ -7,7 +7,8 @@ apt-get update
 # installation
 apt-get install -y python-setuptools python-pip
 # main dependencies
-apt-get install -y python-numpy python-scipy python-matplotlib python-pandas
+apt-get install -y python-numpy python-scipy python-matplotlib python-pandas octave
+pip install oct2py
 pip install DynamicistToolKit>=0.3.0
 # testing
 apt-get install -y python-nose python-coverage

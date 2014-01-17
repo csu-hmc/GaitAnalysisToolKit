@@ -98,6 +98,51 @@ class TestWalkingData():
 
         assert walking_data.raw_data is self.data_frame
 
+    def test_inverse_dynamics_2d(self):
+        # This only tests to make sure new columns were inserted after the
+        # command. There is a test for the underlying leg2d Octave program
+        # that actually tests the computed values.
+
+        # Add some columns for the data we need.
+        lmark = ['LSHO.PosX', 'LSHO.PosY',
+                 'LGTRO.PosX', 'LGTRO.PosY',
+                 'LLEK.PosX', 'LLEK.PosY',
+                 'LLM.PosX', 'LLM.PosY',
+                 'LHEE.PosX', 'LHEE.PosY',
+                 'LMT5.PosX', 'LMT5.PosY']
+
+        rmark = ['RSHO.PosX', 'RSHO.PosY',
+                 'RGTRO.PosX', 'RGTRO.PosY',
+                 'RLEK.PosX', 'RLEK.PosY',
+                 'RLM.PosX', 'RLM.PosY',
+                 'RHEE.PosX', 'RHEE.PosY',
+                 'RMT5.PosX', 'RMT5.PosY']
+
+        lforce = ['FP1.ForX', 'FP1.ForY', 'FP1.MomZ']
+        rforce = ['FP2.ForX', 'FP2.ForY', 'FP2.MomZ']
+
+        columns = lmark + rmark + lforce + rforce
+        rand = np.random.random((len(self.data_frame), len(columns)))
+        new_data = pandas.DataFrame(rand, index=self.data_frame.index,
+                                    columns=columns)
+
+        data_frame = self.data_frame.join(new_data)
+
+        walking_data = WalkingData(data_frame)
+
+        data_frame = walking_data.inverse_dynamics_2d(lmark, rmark, lforce,
+                                                      rforce, 72.0, 6.0)
+
+        # Some of the new columns that will be created.
+        new_columns = ['Left.Hip.Flexion.Angle',
+                       'Right.Knee.Flexion.Rate',
+                       'Left.Ankle.PlantarFlexion.Moment',
+                       'Right.Hip.X.Force',
+                       'Left.Knee.Y.Force']
+
+        for col in new_columns:
+            assert col in walking_data.raw_data.columns
+
     def test_grf_landmarks(self, plot=False):
 
         walking_data = WalkingData(self.data_frame)
