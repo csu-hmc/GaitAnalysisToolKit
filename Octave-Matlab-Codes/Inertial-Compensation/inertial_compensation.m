@@ -47,8 +47,8 @@ path_to_this_file = mfilename('fullpath');
 addpath([directory_of_this_file filesep '..' filesep 'soder'])
 addpath([directory_of_this_file filesep '..' filesep 'mmat'])
 
-p=size(fpdata_cal);
-Nframes2=p(1,1);
+Nframes_cal=length(fpdata_cal);
+Nframes_cor=length(fpdata_cor);
 
 %=====================================================================
 % 1: CALIBRATION (Determining coefficients of correction matrix)
@@ -59,10 +59,10 @@ Nframes2=p(1,1);
 %---------------------------------------------------------------------
 
    %Forming the Sparse Matrix
-      a13=ones(Nframes2,1);
+      a13=ones(Nframes_cal,1);
       acceldata_cal=[acceldata_cal a13];
-      D=zeros(6*Nframes2,78);
-         for i=1:Nframes2
+      D=zeros(6*Nframes_cal,78);
+         for i=1:Nframes_cal
             for j=1:6
                row=6*(i-1)+j;
                col=13*(j-1)+(1:13);
@@ -78,9 +78,8 @@ Nframes2=p(1,1);
         fpdata_cal1=fpdata_cal(:,1:6);
         fpdata_cal2=fpdata_cal(:,7:12);
     %Reshaping for Least Squares
-        B1=reshape(fpdata_cal1',6*Nframes2,1);
-        B2=reshape(fpdata_cal2',6*Nframes2,1);
-
+        B1=reshape(fpdata_cal1',6*Nframes_cal,1);
+        B2=reshape(fpdata_cal2',6*Nframes_cal,1);
 %----------------------------------------------------------------------
 %Creating the Coefficients of the Correction Matrices (FP1/FP2)
 %----------------------------------------------------------------------
@@ -96,10 +95,10 @@ C2=D\B2;
 %Acceleration Matrix (D) Generation
 %----------------------------------------------------------------------
 
-      a13=ones(Nframes2,1);
+      a13=ones(Nframes_cor,1);
       acceldata_cor=[acceldata_cor a13];
-      D=zeros(6*Nframes2,78);
-         for i=1:Nframes2
+      D=zeros(6*Nframes_cor,78);
+         for i=1:Nframes_cor
             for j=1:6
                row=6*(i-1)+j;
                col=13*(j-1)+(1:13);
@@ -115,8 +114,8 @@ C2=D\B2;
         fpdata_cor1=fpdata_cor(:,1:6);
         fpdata_cor2=fpdata_cor(:,7:12);
     %Reshaping for Least Squares
-        B1=reshape(fpdata_cor1',6*Nframes2,1);
-        B2=reshape(fpdata_cor2',6*Nframes2,1);
+        B1=reshape(fpdata_cor1',6*Nframes_cor,1);
+        B2=reshape(fpdata_cor2',6*Nframes_cor,1);
 
 %-----------------------------------------------------------------------
 %Correcting the Force Data from Calibration Matrices (C1 and C2)
@@ -124,10 +123,9 @@ C2=D\B2;
 
     %Correcting the Forces and Moments
         B1c=B1-(D*C1);
-        B1cr=reshape(B1c,6,Nframes2);
+        B1cr=reshape(B1c,6,Nframes_cor);
         B2c=B2-(D*C2);
-        B2cr=reshape(B2c,6,Nframes2);
-
+        B2cr=reshape(B2c,6,Nframes_cor);
 %=======================================================================
 %3. COORDINATE TRANSFORMATION Rotating Force Vectors to Reference Frame
 %=======================================================================
@@ -136,18 +134,17 @@ C2=D\B2;
    x=[marker_cor(1,1:3); marker_cor(1,4:6); marker_cor(1,7:9);...
       marker_cor(1,10:12); marker_cor(1,13:15)];
 %Rearranging Force and Moment Vectors
-    FMP1_corr=reshape(B1cr,6,Nframes2)';
-    FMP2_corr=reshape(B2cr,6,Nframes2)';
+    FMP1_corr=reshape(B1cr,6,Nframes_cor)';
+    FMP2_corr=reshape(B2cr,6,Nframes_cor)';
     FP1_corr=FMP1_corr(:,1:3); MP1_corr=FMP1_corr(:,4:6);
     FP2_corr=FMP2_corr(:,1:3); MP2_corr=FMP2_corr(:,4:6);
-    FP1_p=reshape(FP1_corr(:,1:3)',3,1,Nframes2);
-    MP1_p=reshape(MP1_corr(:,1:3)',3,1,Nframes2);
-    FP2_p=reshape(FP2_corr(:,1:3)',3,1,Nframes2);
-    MP2_p=reshape(MP2_corr(:,1:3)',3,1,Nframes2);
-
+    FP1_p=reshape(FP1_corr(:,1:3)',3,1,Nframes_cor);
+    MP1_p=reshape(MP1_corr(:,1:3)',3,1,Nframes_cor);
+    FP2_p=reshape(FP2_corr(:,1:3)',3,1,Nframes_cor);
+    MP2_p=reshape(MP2_corr(:,1:3)',3,1,Nframes_cor);
 %Determining the R and P Matrices
-    R=zeros(3,3,Nframes2); xpos=zeros(3,1,Nframes2);
-    for i=1:Nframes2
+    R=zeros(3,3,Nframes_cor); xpos=zeros(3,1,Nframes_cor);
+    for i=1:Nframes_cor
          y=[marker_cor(i,1:3); marker_cor(i,4:6); marker_cor(i,7:9);...
             marker_cor(i,10:12); marker_cor(i,13:15)];
          [R1,xpos1]=soder(x,y);
@@ -165,10 +162,10 @@ C2=D\B2;
 %=========================================================================
 
 %Rearranging Matrices
-    FP1=reshape(FP1,3,Nframes2)';
-    MP1=reshape(MP1,3,Nframes2)';
-    FP2=reshape(FP2,3,Nframes2)';
-    MP2=reshape(MP2,3,Nframes2)';
+    FP1=reshape(FP1,3,Nframes_cor)';
+    MP1=reshape(MP1,3,Nframes_cor)';
+    FP2=reshape(FP2,3,Nframes_cor)';
+    MP2=reshape(MP2,3,Nframes_cor)';
 %Compensated Forces
     comp_fp=[FP1 MP1 FP2 MP2];
 end
