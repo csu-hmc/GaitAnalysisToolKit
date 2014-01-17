@@ -9,10 +9,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas
 from dtk import process
-#from oct2py import octave
+from oct2py import octave
 
 # local
-#from .utils import _percent_formatter
+from .utils import _percent_formatter
 
 # debugging
 try:
