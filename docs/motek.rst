@@ -161,7 +161,8 @@ Analog Channels
 
       The EMG/Acceleromter channels are 72 milliseconds behind the force plate
       measurements. There may be other delays present too that may or may not
-      be taken care of in Cortex or D-Flow.
+      be taken care of in Cortex or D-Flow. The lag of the EMG/Accelerometers
+      is due to the wireless communication.
 
 Human Body Model
    The mocap TSV file can also contain joint angles [degrees], joint moments
@@ -231,6 +232,16 @@ are zero, then HBM ignores them and tries to compute the inverse dynamics with
 a reduced set of markers. So if you playback recordings which have missing
 markers stored as constant values in D-Flow, you will likely get incorrect
 inverse dynamics.
+
+Time Delays
+~~~~~~~~~~~
+
+There are time delays between the camera marker data, force plate analog
+signals, and the wireless EMG/Accelerometers. The documentation for the Delsys
+wireless system explicity states that there is a 96ms delay in the data with
+respect to the analog signals that are sample from the unit which is due to the
+wireless data transfer. There is also an measurable delay in the camera data
+with respect to the analog data which seems to hover around 7 ms.
 
 Other
 ~~~~~
@@ -382,7 +393,7 @@ There are some standard meta data that should be collected with every trial.
        gender: male/female # for body seg calcs in hbm
    trial:
        id: 1
-       datetime: !!timestamp 2013-12-03 05:06:00
+       datetime: 2013-12-03 05:06:00
        notes: text to give anomalies
        nominal-speed: 5
        nominal-speed: m/s
@@ -390,13 +401,15 @@ There are some standard meta data that should be collected with every trial.
        pitch: True
        sway: True
        marker-set: full/lower/NA
-   hardware-settings:
-       high-performance: True/False
-   files:
-       - mocap-module-01.txt
-       - record-module-01.txt
-       - cortex-01.cap
-       - gait-01.mox
+       hardware-settings:
+          high-performance: True/False
+       files:
+           compensation: ../T002/mocap-module-002.txt
+           mocap: mocap-module-001.txt
+           record: record-module-001.txt
+           cortex: cortex-001.cap
+           mox: gait-001.mox
+           meta: meta-001.yml
 
 .. todo::
    HBM requires some measurements of the person and that can be found in the
@@ -468,7 +481,7 @@ measurement names will be available for future use, for example::
            Channel27.Anlg: Back_Right_AccY
            Channel28.Anlg: Back_Right_AccZ
 
-12 accelerometers in order starting at Channel13. EMG, X, Y, Z order
+16 accelerometers in order starting at Channel13. EMG, X, Y, Z order
 
 Events
 ~~~~~~
@@ -489,22 +502,39 @@ Usage
 The ``DFlowData`` class is used to post process data collected from the D-Flow
 mocap and record modules. It does these operations:
 
-1. Loads the mocap and record modules into Pandas ``DataFrame``\s.
-2. Loads the meta data file into a Python dictionary.
-3. Identifies the missing values in the mocap data and replaces with NaN.
-4. Computes and displays statistics on how many missing values are present, the
-   max consecutive missing values, etc.
-5. Interpolates the missing values and replaces them with interpolated
-   estimates.
-6. Compensates for the motion of the treadmill base [#]_.
-7. Computes the inverse dynamics [#]_.
-8. Merges the data from the mocap module and record module into one
-   ``DataFrame``.
-9. Extracts sections of the data based on event names.
-10. Writes the cleaned and augmented data to file [#]_.
+1. Loads the meta data file into a Python dictionary if there is one.
+2. Loads the mocap and record modules into Pandas ``DataFrame``\s. [#]_
+3. Shifts the Delsys signals in the mocap module data to accomodate for the
+   wireless time delay, ~96ms.
+4. Identifies the missing values in the mocap marker data and replaces with
+   NaN.
+5. Returns statistics on how many missing values in the marker time series are
+   present, the max consecutive missing values, etc.
+6. Optionally, interpolates the missing marker values and replaces them with
+   interpolated estimates.
+7. Compensates the force measurments for the motion of the treadmill base.
 
-.. [#] Not implemented yet.
-.. [#] Not implemented yet.
+   1. Pulls the compensation file path from meta data.
+   2. Loads the compensation file (only the necessary columns).
+   3. Identifies the missing markers and interpolates to fill them.
+   4. Shifts the Delsys signals to correct time.
+   5. Filter the forces, accelerometer, and treadmill markers at 6 hz low pass.
+   6. Compute the compensated forces (apply inertial compensation and express
+      in global reference frame)
+   7. Replace the force/moment measurements in the mocap data file with the
+      compensated forces/moments.
+
+8. Scales the analog signals to their proper units. [#]_
+9. Merges the data from the mocap module and record module into one
+   ``DataFrame``.
+10. Optionally, low pass filter all human related data. (If there wasn't a
+    stationary platform, then these should always be filtered with the same low
+    pass filter as the compensation algorithm used.)
+11. Extracts sections of the data based on event names.
+12. Writes the cleaned and augmented data to file [#]_.
+
+.. [#] Only supports TSV files, we plan to add C3D support for the mocap file.
+.. [#] Not implemented yet, scaling factors should be stored in meta data?.
 .. [#] Only outputs to tsv.
 
 Python API
@@ -513,7 +543,7 @@ Python API
 The ``DFlowData`` class gives a simple Python API for working with the
 D-Flow file outputs.
 
-.. code::
+::
 
    from dtk.walk import DFlowData
 
@@ -541,7 +571,7 @@ The following command will load the three input files, clean up the data, and
 write the results to file, which can be loaded back into D-Flow or used in some
 other application.
 
-.. code::
+.. sourcecode:: console
 
    dflowdata -m trial_01_mocap.txt -r trial_01_record.txt -y trial_01_meta.yml trial_01_clean.txt
 
@@ -551,36 +581,28 @@ Examples
 This shows how to compare the raw marker data with the new interpolated data,
 in this case a simple linear interpolation.
 
-.. code::
+::
 
    import pandas
    import maplotlib.pyplot as plt
 
    data = DFlowData('mocap-module-01.txt', 'record-module-01.txt')
    data.clean_data()
+
    unclean = pandas.read_csv('mocap-module-01.txt', delimiter='\t')
+
    fig, axes = plt.subplots(3, 1, sharex=True)
 
-   axes[0].plot(data.data['TimeStamp'], data.data['RHEE.PosX'],
-                unclean['TimeStamp'], unclean['RHEE.PosX'], '.')
-   axes[1].plot(data.data['TimeStamp'], data.data['RHEE.PosY'],
-                unclean['TimeStamp'], unclean['RHEE.PosY'], '.')
-   axes[2].plot(data.data['TimeStamp'], data.data['RHEE.PosZ'],
-                unclean['TimeStamp'], unclean['RHEE.PosZ'], '.')
+   for i, label in enumerate(['RHEE.PosX', 'RHEE.PosY', 'RHEE.PosZ']):
 
-   axes[0].legend(['Interpolated', 'Raw'])
-   axes[1].legend(['Interpolated', 'Raw'])
-   axes[2].legend(['Interpolated', 'Raw'])
+      axes[i].plot(data.data['TimeStamp'], data.data[label],
+                   unclean['TimeStamp'], unclean[label], '.')
 
-   axes[0].set_ylabel('RHEE.PosX [m]')
-   axes[1].set_ylabel('RHEE.PosY [m]')
-   axes[2].set_ylabel('RHEE.PosZ [m]')
+      axes[i].set_ylabel(label + ' [m]')
+
+      axes[i].legend(['Interpolated', 'Raw'], fontsize=8)
 
    axes[2].set_xlabel('Time')
-
-   axes[0].legend(['Interpolated', 'Raw'], fontsize=8)
-   axes[1].legend(['Interpolated', 'Raw'], fontsize=8)
-   axes[2].legend(['Interpolated', 'Raw'], fontsize=8)
 
    fig.show()
 

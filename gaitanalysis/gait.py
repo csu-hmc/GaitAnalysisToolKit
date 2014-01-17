@@ -1,12 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# standard library
+import os
+
 # external libraries
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.ticker import FuncFormatter
 import pandas
 from dtk import process
+from oct2py import octave
+
+# local
+from .utils import _percent_formatter
 
 # debugging
 try:
@@ -15,18 +21,6 @@ except ImportError:
     pass
 else:
     set_trace = Tracer()
-
-
-def _to_percent(value, position):
-    """Returns a string representation of a percentage for matplotlib
-    tick labels."""
-    if plt.rcParams['text.usetex'] is True:
-        return '{:1.0%}'.format(value).replace('%', r'$\%$')
-    else:
-        return '{:1.0%}'.format(value)
-
-# tick label formatter
-_percent_formatter = FuncFormatter(_to_percent)
 
 
 def find_constant_speed(time, speed, plot=False):
@@ -137,6 +131,133 @@ class WalkingData(object):
         # data.index.values.astype(float)*1e-9
 
         self.raw_data = data_frame
+
+    def inverse_dynamics_2d(self, left_leg_markers, right_leg_markers,
+                            left_leg_forces, right_leg_forces, body_mass,
+                            low_pass_cutoff):
+        """Computes the hip, knee, and ankle angles, angular rates, joint
+        moments, and joint forces and adds them as columns to the data
+        frame.
+
+        Parameters
+        ----------
+        left_leg_markers : list of strings, len(12)
+            The names of the columns that give the X and Y marker
+            coordinates for six markers.
+        right_leg_markers : list of strings, len(12)
+            The names of the columns that give the X and Y marker
+            coordinates for six markers.
+        left_leg_forces : list of strings, len(3)
+            The names of the columns of the ground reaction forces and
+            moments (Fx, Fy, Mz).
+        right_leg_forces : list of strings, len(3)
+            The names of the columns of the ground reaction forces and
+            moments (Fx, Fy, Mz).
+        body_mass : float
+            The mass in kilograms of the subject.
+        low_pass_cutoff : float
+            The cutoff frequency in hertz.
+
+        Returns
+        -------
+        data_frame : pandas.DataFrame
+            The main data frame now with columns for the new variables. Note
+            that the force coordinates labels (X, Y) are relative to the
+            coordinate system described herein.
+
+        Notes
+        ------
+
+        This computation assumes the following coordinate system::
+
+           Y
+            ^ _ o _
+            |  | |   ---> v
+            |  / \
+            -----> x
+
+        where X is forward (direction of walking) and Y is up.
+
+        Make sure the sign conventions of the columns you pass in are
+        correct!
+
+        The markers should be in the following order:
+            1. Shoulder
+            2. Greater trochanter
+            3. Lateral epicondyle of knee
+            4. Lateral malleolus
+            5. Heel (placed at same height as marker 6)
+            6. Head of 5th metatarsal
+
+        The underlying function low pass filters the data before computing
+        the inverse dynamics. You should pass in unfiltered data.
+
+        """
+        mfile = os.path.abspath(os.path.join(os.path.split(__file__)[0],
+                                             '..', 'Octave-Matlab-Codes',
+                                             '2D-Inverse-Dynamics'))
+        octave.addpath(mfile)
+
+        options = {'freq': low_pass_cutoff}
+
+        time = self.raw_data.index.values.astype(float)
+        time = time.reshape((len(time), 1))  # octave wants a column vector
+
+        marker_sets = [left_leg_markers, right_leg_markers]
+        force_sets = [left_leg_forces, right_leg_forces]
+
+        side_labels = ['Left', 'Right']
+        joint_labels = ['Hip', 'Knee', 'Ankle']
+        sign_labels = ['Flexion', 'Flexion', 'PlantarFlexion', ('X', 'Y')]
+        dynamic_labels = ['Angle', 'Rate', 'Moment', 'Force']
+        scale_factors = [1.0, 1.0, body_mass, body_mass]
+
+        for side_label, markers, forces in zip(side_labels, marker_sets,
+                                               force_sets):
+
+            marker_array = self.raw_data[markers].values.copy()
+            normalized_force_array = \
+                self.raw_data[forces].values.copy() / body_mass
+
+            # oct2py doesn't allow multiple outputs to be stored in a tuple
+            # like python, so you have to output each variable
+            # independently
+            angles, velocities, moments, forces = \
+                octave.leg2d(time, marker_array, normalized_force_array,
+                             options)
+
+            dynamics = angles, velocities, moments, forces
+
+            fours = zip(dynamics, sign_labels, dynamic_labels,
+                        scale_factors)
+
+            for array, sign_label, dynamic_label, scale_factor in fours:
+
+                if isinstance(sign_label, tuple):
+
+                    # array is N x 6, (Fx, Fy) for each joint
+
+                    a = array[:, :2], array[:, 2:4], array[:, 4:]
+
+                    for joint_label, vectors in zip(joint_labels, a):
+
+                        for slab, vector in zip(sign_label, vectors.T):
+
+                            label = '.'.join([side_label, joint_label, slab,
+                                              dynamic_label])
+
+                            self.raw_data[label] = scale_factor * vector
+
+                else:
+
+                    for joint_label, vector in zip(joint_labels, array.T):
+
+                        label = '.'.join([side_label, joint_label,
+                                          sign_label, dynamic_label])
+
+                        self.raw_data[label] = scale_factor * vector
+
+        return self.raw_data
 
     def grf_landmarks(self, right_vertical_grf_col_name,
                       left_vertical_grf_col_name, **kwargs):
@@ -368,7 +489,8 @@ class WalkingData(object):
 
 def gait_landmarks_from_grf(time, right_grf, left_grf,
                             threshold=1e-5, do_plot=False, min_time=None,
-                            max_time=None):
+                            max_time=None, num_steps_to_plot=None,
+                            filter_frequency=None):
     """
     Obtain gait landmarks (right and left foot strike & toe-off) from ground
     reaction force (GRF) time series data.
@@ -391,6 +513,12 @@ def gait_landmarks_from_grf(time, right_grf, left_grf,
         If set, only consider times greater than `min_time`.
     max_time : float, optional
         If set, only consider times greater than `max_time`.
+    num_steps_to_plot : integer, optional, default=None
+    filter_frequency : float, optional, default=None
+        If a filter frequency is provided, in Hz, the right and left ground
+        reaction forces will be filtered with a 2nd order low pass filter
+        before the landmarks are identified. This method assumes that there
+        is a constant (or close to constant) sample rate.
 
     Returns
     -------
@@ -450,6 +578,16 @@ def gait_landmarks_from_grf(time, right_grf, left_grf,
     else:
         min_idx = max(1, nearest_index(time, min_time))
 
+    # If the ground reaction forces are very noisy, it may help to low pass
+    # filter the signals before searching for the strikes and offs.
+
+    if filter_frequency is not None:
+        average_sample_rate = 1.0 / np.mean(np.diff(time))
+        right_grf = process.butterworth(right_grf, filter_frequency,
+                                        average_sample_rate)
+        left_grf = process.butterworth(left_grf, filter_frequency,
+                                       average_sample_rate)
+
     index_range = range(min_idx, max_idx)
 
     right_foot_strikes = birth_times(right_grf)
@@ -482,6 +620,13 @@ def gait_landmarks_from_grf(time, right_grf, left_grf,
                 else:
                     kwargs = dict()
                 plt.plot(off * ones, ax.get_ylim(), 'b', **kwargs)
+
+            if num_steps_to_plot is not None:
+                try:
+                    ax.set_xlim((ax.get_xlim()[0],
+                                foot_strikes[num_steps_to_plot]))
+                except IndexError:
+                    raise IndexError('{} is not a valid number of steps to plot'.format(num_steps_to_plot))
 
         myplot(1, 'left foot', left_grf, left_foot_strikes, left_toe_offs)
         plt.legend(loc='best')
