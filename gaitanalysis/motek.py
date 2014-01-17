@@ -27,7 +27,10 @@ class DFlowData(object):
     coordinate_labels = ['X', 'Y', 'Z']
     marker_coordinate_suffixes = ['.Pos' + c for c in coordinate_labels]
     marker_coordinate_regex = '.*\.Pos[XYZ]$'
-    hbm_column_regexes = ['^[LR]_.*', '.*\.Mom$', '.*\.Ang$', '.*\.Pow$']
+    # In the motek output file there is a space preceding only these two
+    # column names: ' L_Psoas' ' R_Psoas'
+    hbm_column_regexes = ['^\s?[LR]_.*', '.*\.Mom$', '.*\.Ang$', '.*\.Pow$']
+    analog_channel_regex = '^Channel[0-9]+\.Anlg$' 
     # TODO: There are also .Rot[XYZ] and .COM.X values. Need to determine
     # what they are.
     force_plate_names = ['FP1', 'FP2']  # FP1 : left, FP2 : right
@@ -64,6 +67,8 @@ class DFlowData(object):
              self.non_hbm_column_indices) = \
                 self._hbm_column_labels(self.mocap_column_labels)
 
+            (self.analog_column_labels, self.analog_column_indices) = self._analog_column_labels(self.mocap_column_labels)
+
     def _parse_meta_data_file(self):
         """Returns a dictionary containing the meta data stored in the
         optional meta data file."""
@@ -74,7 +79,7 @@ class DFlowData(object):
         return meta
 
     def _mocap_column_labels(self):
-        """Retruns a list of strings containing the motion capture file's
+        """Returns a list of strings containing the motion capture file's
         column labels.  The list is in the same order as in the mocap tsv
         file."""
         with open(self.mocap_tsv_path, 'r') as f:
@@ -148,6 +153,45 @@ class DFlowData(object):
                 non_hbm_indices.append(i)
 
         return hbm_labels, hbm_indices, non_hbm_indices
+
+    def _analog_column_labels(self, labels):
+        """Returns a list of analog channel column labels and the indices of
+        the labels.
+
+        Parameters
+        ----------
+        labels : list of strings
+            This should be a superset of column labels, some of which may be
+            human body model results.
+
+        Returns
+        -------
+        analog_labels : list of strings
+            The labels of analog channels in the order found
+            in `labels`.
+        analog_indices : list of integers
+            The indices of the analog columns with respect to the indices of
+            `labels`.
+        """
+
+        analog_labels = []
+        analog_indices = []
+
+        reg_exp = re.compile(self.analog_channel_regex)
+
+        for i, label in enumerate(labels):
+            if reg_exp.match(label):
+                analog_labels.append(label)
+                analog_indices.append(i)
+        
+        if self.meta_yml_path is not None:
+            if 'analog-channel-map' in self.meta['trial']:
+                channel_dictionary = self.meta['trial']['analog-channel-map']
+                for i,channel in enumerate(analog_labels):
+                    if channel in channel_dictionary:   
+                        analog_labels[i] = channel_dictionary[channel]
+
+        return analog_labels, analog_indices
 
     def _identify_missing_markers(self, data_frame):
         """Returns the data frame in which all marker columns (ends with
@@ -233,7 +277,7 @@ class DFlowData(object):
 
         return data_frame
 
-    def _load_mocap_data(self, ignore_hbm=False, id_hbm_na=False):
+    def _load_mocap_data(self, ignore_hbm=False, id_hbm_na=False, rename_analog_channels=True):
         """Returns a data frame generated from the tsv mocap file.
 
         Parameters
@@ -249,16 +293,22 @@ class DFlowData(object):
         """
 
         if ignore_hbm is True:
-            return pandas.read_csv(self.mocap_tsv_path, delimiter='\t',
+            data_frame = pandas.read_csv(self.mocap_tsv_path, delimiter='\t',
                                    usecols=self.non_hbm_column_indices)
         else:
             if id_hbm_na is True:
                 hbm_na_values = {k: self.hbm_na for k in
                                  self.hbm_column_labels}
-                return pandas.read_csv(self.mocap_tsv_path, delimiter='\t',
+                data_frame = pandas.read_csv(self.mocap_tsv_path, delimiter='\t',
                                        na_values=hbm_na_values)
             else:
-                return pandas.read_csv(self.mocap_tsv_path, delimiter='\t')
+                data_frame =  pandas.read_csv(self.mocap_tsv_path, delimiter='\t')
+
+        if rename_analog_channels is True:
+            data_frame.rename(columns=self.meta['trial']['analog-channel-map'], inplace=True)
+
+        return data_frame
+        
 
     def missing_value_statistics(self, data_frame):
         """Returns a report of missing values in the marker and/or HBM
@@ -359,6 +409,26 @@ class DFlowData(object):
 
         return pandas.DataFrame(new_record)
 
+    def _(self, data_frame):
+        """
+        There is a time delay between accelerometer and force plate signals.
+        Assuming the accelerometer signals are delayed 72ms
+        """
+        def nearest_index(array, val):
+            return np.abs(array - val).argmin()
+
+        delay_time = .072
+        data_frame['D-Flow Time'][0] + delay_time
+
+        delay_index = nearest_index(data_frame['D-Flow Time'][0].values,
+                                    data_frame['D-Flow Time'][0].values + delay_time)
+
+        for channel in dataframe.columns:
+            if ('Acc' in channel) or ('EMG' in channel):
+                dataframe[channel] = dataframe[channel].shift(delay_index)
+
+        return
+
     def _compensate_forces(self):
         """Computes the forces and moments which are due to the lateral and
         pitching motions of the treadmill and subtracts them from the
@@ -393,11 +463,53 @@ class DFlowData(object):
         # computing the inverse dynamics.
         raise NotImplementedError()
 
+    def _calibrate_accel_data(self, data_frame, y1=0, y2=9.81):
+        """Two-point calibration of accelerometer signals.
+        Converts from voltage to meters/second^2
+        Assuming a triaxial accelerometer
+        (xyz)
+        -----
+        (001)
+        (100)
+        (010)
+        """
+
+        accel_channels = []
+        for i,channel in enumerate(self.analog_column_labels):
+            if 'Acc' in channel:
+                accel_channels.append(self.analog_column_labels[i])        
+
+        cal = pandas.read_csv(self.meta['trial']['files']['accel-calibration'])
+
+        cal = cal.drop('Time', 1)
+
+        if len(accel_channels) != cal.shape[1]:
+            raise ValueError("Calibration file doesn't match mocap data.")
+
+        def twopointcalibration(x, x1, x2):
+            m = (y2-y1)/(x2-x1)
+            return m*(x-x1)+y1
+
+        for i in range(0, len(accel_channels),3):
+            x1 = cal.icol(i)[0]; x2 = cal.icol(i)[1]
+            data_frame[accel_channels[i]] = twopointcalibration(data_frame[accel_channels[i]], x1, x2)
+
+        for i in range(1, len(accel_channels),3):
+            x1 = cal.icol(i)[0]; x2 = cal.icol(i)[2]
+            data_frame[accel_channels[i]] = twopointcalibration(data_frame[accel_channels[i]], x1, x2)
+
+        for i in range(2, len(accel_channels),3):
+            x1 = cal.icol(i)[1]; x2 = cal.icol(i)[0]
+            data_frame[accel_channels[i]] = twopointcalibration(data_frame[accel_channels[i]], x1, x2)
+
+        return data_frame
+
     def clean_data(self):
         """Loads and processes the data."""
 
         if self.mocap_tsv_path is not None:
-            raw_mocap_data_frame = self._load_mocap_data(ignore_hbm=True)
+            raw_mocap_data_frame = self._load_mocap_data(ignore_hbm=False)
+            mocap_data_frame = self._calibrate_accel_data(raw_mocap_data_frame)
             mocap_data_frame = self._identify_missing_markers(raw_mocap_data_frame)
             mocap_data_frame = \
                 self._generate_cortex_time_stamp(mocap_data_frame)
