@@ -6,7 +6,7 @@ import os
 
 # external libraries
 import numpy as np
-from scipy.integrate import cumtrapz
+from scipy.integrate import simps
 import matplotlib.pyplot as plt
 import pandas
 from dtk import process
@@ -436,10 +436,11 @@ class WalkingData(object):
                      'Step Duration': [],
                      'Cadence': [],  # step / time
                      }
+
         if belt_speed_column is not None:
             step_data['Stride Length'] = []
             step_data['Average Belt Speed'] = []
-        # TODO : Compute average treadmill speed over step.
+
         for i, lead_val in enumerate(lead):
             try:
                 data_frame = self.raw_data[lead_val:trail[i]]
@@ -466,11 +467,11 @@ class WalkingData(object):
                 step_data['Step Duration'].append(new_index[-1])
                 step_data['Cadence'].append(1.0 / new_index[-1])
                 if belt_speed_column is not None:
-                    step_data['Stride Length'] = \
-                        cumtrapz(data_frame[belt_speed_column].values,
-                                 new_index)
-                    step_data['Average Belt Speed'] = \
-                        data_frame[belt_speed_column].mean()
+                    stride_len = simps(data_frame[belt_speed_column].values,
+                                       new_index)
+                    step_data['Stride Length'].append(stride_len)
+                    avg_speed = data_frame[belt_speed_column].mean()
+                    step_data['Average Belt Speed'].append(avg_speed)
 
         self.steps = pandas.Panel(steps)
         self.step_data = pandas.DataFrame(step_data)
