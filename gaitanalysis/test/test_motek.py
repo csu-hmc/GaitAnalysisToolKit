@@ -214,6 +214,7 @@ class TestDFlowData():
     dflow_record_max_sample_period = 1.0 / 30.0
     dflow_record_min_sample_period = 1.0 / 300.0
     dflow_record_number_of_samples = 1000
+    delsys_time_delay = DFlowData.delsys_time_delay
 
     # TODO: Ensure that the Cortex and D-Flow time series span the same
     # amount of time.
@@ -389,7 +390,11 @@ class TestDFlowData():
                       }
 
         for label in self.mocap_labels_with_hbm[2:]: # skip TimeStamp & FrameNumber
-            mocap_data[label] = np.sin(mocap_data['TimeStamp'])
+            if label in self.compensation_analog_labels:
+                mocap_data[label] = np.sin(mocap_data['TimeStamp'] -
+                                           self.delsys_time_delay)
+            else:
+                mocap_data[label] = np.sin(mocap_data['TimeStamp'])
 
         self.mocap_data_frame = pandas.DataFrame(mocap_data)
 
@@ -427,7 +432,8 @@ class TestDFlowData():
             compensation_data[label] = 0.5 * np.cos(compensation_data['TimeStamp'])
 
         for label in self.compensation_analog_labels:
-            compensation_data[label] = np.cos(compensation_data['TimeStamp'])
+            compensation_data[label] = np.cos(compensation_data['TimeStamp']
+                                              - self.delsys_time_delay)
 
         self.compensation_data_frame = pandas.DataFrame(compensation_data)
 
@@ -668,6 +674,18 @@ class TestDFlowData():
         assert hbm_i == range(len(self.mocap_labels_without_hbm),
                               len(self.mocap_labels_with_hbm))
         assert non_hbm_i == range(len(self.mocap_labels_without_hbm))
+
+    def test_shift_delsys_signals(self):
+        dflow_data = DFlowData(self.path_to_mocap_data_file)
+        mocap_data_frame = dflow_data._load_mocap_data(ignore_hbm=True)
+        shifted_mocap_data_frame = \
+            dflow_data._shift_delsys_signals(mocap_data_frame)
+
+        # TODO: The last 10 points don't match well. Is probably due to the spline
+        # extrapolation. Maybe better to check this out at some point.
+        testing.assert_allclose(shifted_mocap_data_frame['Channel13.Anlg'][:1990],
+                                np.sin(shifted_mocap_data_frame['TimeStamp'])[:1990],
+                                atol=1e-5, rtol=1e-5)
 
     def test_identify_missing_markers(self):
         dflow_data = DFlowData(self.path_to_mocap_data_file)

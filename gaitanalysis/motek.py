@@ -492,7 +492,7 @@ class DFlowData(object):
         return data_frame
 
     def _shift_delsys_signals(self, data_frame, time_col='TimeStamp'):
-        """Returns a data frame in which the  Delsys columns are linearly
+        """Returns a data frame in which the Delsys columns are linearly
         interpolated (and extrapolated) at the time they were actually
         measured."""
 
@@ -501,10 +501,10 @@ class DFlowData(object):
         delsys_labels = emg_labels + accel_labels
 
         for delsys_label in set(data_frame.columns).intersection(delsys_labels):
-            interpolate = InterpolatedUnivariateSpline(data_frame[time_col],
+            interpolate = InterpolatedUnivariateSpline(delsys_time,
                                                        data_frame[delsys_label],
                                                        k=1)
-            data_frame[delsys_label] = interpolate(delsys_time)
+            data_frame[delsys_label] = interpolate(data_frame[time_col])
 
         return data_frame
 
