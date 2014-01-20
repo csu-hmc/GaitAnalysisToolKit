@@ -6,6 +6,7 @@ import os
 
 # external libraries
 import numpy as np
+from scipy.integrate import simps
 import matplotlib.pyplot as plt
 import pandas
 from dtk import process
@@ -172,7 +173,7 @@ class WalkingData(object):
 
            Y
             ^ _ o _
-            |  | |   ---> v
+            |   |   ---> v
             |  / \
             -----> x
 
@@ -370,7 +371,8 @@ class WalkingData(object):
 
         return axes
 
-    def split_at(self, side, section='both', num_samples=None):
+    def split_at(self, side, section='both', num_samples=None,
+                 belt_speed_column=None):
         """Forms a pandas.Panel which has an item for each step. The index
         of each step data frame will be a percentage of gait cycle.
 
@@ -381,9 +383,13 @@ class WalkingData(object):
             toe-offs.
         section : string {both|stance|swing}
             Whether to split around the stance phase, swing phase, or both.
-        num_samples : integer
+        num_samples : integer, optional
             If provided the time series in each step will be interpolated at
-            values evenly spaced in time across the step.
+            values evenly spaced at num_sample in time across the step. If
+            none, the minimum number of samples per step will be used.
+        belt_speed_column : string, optional
+            The column name corresponding to the belt speed on the
+            corresponding side.
 
         Returns
         =======
@@ -407,7 +413,6 @@ class WalkingData(object):
             trail = trail[1:]
 
         samples = []
-        max_times = []
         for i, lead_val in enumerate(lead):
             try:
                 step_slice = self.raw_data[lead_val:trail[i]]
@@ -415,48 +420,61 @@ class WalkingData(object):
                 pass
             else:
                 samples.append(len(step_slice))
-                max_times.append(float(step_slice.index[-1]) -
-                                 float(step_slice.index[0]))
 
         max_num_samples = min(samples)
-        max_time = min(max_times)
         if num_samples is None:
             num_samples = max_num_samples
         # TODO: This percent should always be computed with respect to heel
-        # strike next heel strike, i.e.:
+        # strike to next heel strike, i.e.:
         # stance: 0.0 to percent stance
         # swing: percent stance to 1.0
         # both: 0.0 to 1.0
         percent_gait = np.linspace(0.0, 1.0, num=num_samples)
 
         steps = {}
+        step_data = {'Number of Samples': [],
+                     'Step Duration': [],
+                     'Cadence': [],  # step / time
+                     }
+
+        if belt_speed_column is not None:
+            step_data['Stride Length'] = []
+            step_data['Average Belt Speed'] = []
+
         for i, lead_val in enumerate(lead):
             try:
-                # get the step and truncate it to minimum step length
-                data_frame = \
-                    self.raw_data[lead_val:trail[i]].iloc[:max_num_samples]
+                data_frame = self.raw_data[lead_val:trail[i]]
             except IndexError:
                 pass
             else:
                 # make a new time index starting from zero for each step
-                new_index = data_frame.index.values.astype(float) - \
-                    data_frame.index[0]
+                original_time = data_frame.index.values.astype(float)
+                new_index = original_time - data_frame.index[0]
                 data_frame.index = new_index
+                # keep the original time around for future use
+                data_frame['Original Time'] = original_time
                 # create a time vector index which has a specific number
-                # of samples over the period of time, the max time needs
-                sub_sample_index = np.linspace(0.0, max_time,
+                # of samples over the period of time
+                sub_sample_index = np.linspace(0.0, new_index[-1],
                                                num=num_samples)
                 interpolated_data_frame = interpolate(data_frame,
                                                       sub_sample_index)
                 # change the index to percent of gait cycle
                 interpolated_data_frame.index = percent_gait
                 steps[i] = interpolated_data_frame
+                # compute some step stats
+                step_data['Number of Samples'].append(len(data_frame))
+                step_data['Step Duration'].append(new_index[-1])
+                step_data['Cadence'].append(1.0 / new_index[-1])
+                if belt_speed_column is not None:
+                    stride_len = simps(data_frame[belt_speed_column].values,
+                                       new_index)
+                    step_data['Stride Length'].append(stride_len)
+                    avg_speed = data_frame[belt_speed_column].mean()
+                    step_data['Average Belt Speed'].append(avg_speed)
 
         self.steps = pandas.Panel(steps)
-
-        # TODO: compute speed (treadmill speed?), cadence (steps/second),
-        # swing to stance, stride length for each step in a seperate data
-        # frame with step number as the index
+        self.step_data = pandas.DataFrame(step_data)
 
         return self.steps
 
