@@ -11,7 +11,8 @@ from ..markers import det3, soederkvist
 def test_det3():
 
     a = np.random.random((10, 3, 3))
-    testing.assert_allclose(det3(a), np.linalg.det(a))
+    expected = [np.linalg.det(x) for x in a]
+    testing.assert_allclose(det3(a), expected)
 
 
 def test_soederkvist():
