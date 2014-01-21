@@ -27,6 +27,13 @@ forces_FP1=forces(:,1:6);
 forces_FP2=forces(:,7:12); 
 
 %-------------------------------------------------------------------------
+% Make the soder.m and mmat.m files available to this function
+%-------------------------------------------------------------------------
+    path_to_this_file = mfilename('fullpath');
+    [directory_of_this_file, ~, ~] = fileparts(path_to_this_file);
+    addpath([directory_of_this_file filesep '..' filesep 'soder'])
+    addpath([directory_of_this_file filesep '..' filesep 'mmat'])
+%-------------------------------------------------------------------------
 %Rearranging Data
 %-------------------------------------------------------------------------
     %Initial Reference Coordinate Position
