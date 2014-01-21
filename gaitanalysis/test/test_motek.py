@@ -5,6 +5,7 @@
 import os
 from time import strptime
 from distutils.version import LooseVersion
+from random import sample
 
 # external
 import numpy as np
@@ -497,7 +498,7 @@ class TestDFlowData():
 
         time = self.record_data_frame['Time']
 
-        self.three_event_times = sorted(np.random.choice(time, 3))
+        self.three_event_times = sorted(sample(time, 3))
 
         event_times = {k: v for k, v in zip(['A', 'B', 'C'],
                                             self.three_event_times)}
