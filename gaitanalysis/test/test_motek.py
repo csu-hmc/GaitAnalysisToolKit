@@ -229,6 +229,7 @@ class TestDFlowData():
                            'FP2.ForZ', 'FP2.MomX', 'FP2.MomY', 'FP2.MomZ']
 
     cortex_analog_labels = ['Channel1.Anlg', 'Channel2.Anlg']
+    cortex_analog_labels = ["F1Y1", "F1Y2"]
 
     dflow_hbm_labels = ['RKneeFlexion.Ang',
                         'RKneeFlexion.Mom',
@@ -256,6 +257,15 @@ class TestDFlowData():
                                   "Channel23.Anlg", "Channel24.Anlg",
                                   "Channel25.Anlg", "Channel26.Anlg",
                                   "Channel27.Anlg", "Channel28.Anlg"]
+
+    compensation_analog_labels = ["Front_Left_EMG", "Front_Left_AccX",
+                                  "Front_Left_AccY", "Front_Left_AccZ",
+                                  "Back_Left_EMG", "Back_Left_AccX",
+                                  "Back_Left_AccY", "Back_Left_AccZ",
+                                  "Front_Right_EMG", "Front_Right_AccX",
+                                  "Front_Right_AccY", "Front_Right_AccZ",
+                                  "Back_Right_EMG", "Back_Right_AccX",
+                                  "Back_Right_AccY", "Back_Right_AccZ"]
 
     mocap_labels_without_hbm = (['TimeStamp', 'FrameNumber'] +
                                 all_marker_labels +
@@ -703,12 +713,12 @@ class TestDFlowData():
 
         # TODO: The last 10 points don't match well. Is probably due to the spline
         # extrapolation. Maybe better to check this out at some point.
-        testing.assert_allclose(shifted_mocap_data_frame['Channel13.Anlg'][:1990],
+        testing.assert_allclose(shifted_mocap_data_frame['Front_Left_EMG'][:1990],
                                 np.sin(shifted_mocap_data_frame['TimeStamp'])[:1990],
                                 atol=1e-5, rtol=1e-5)
 
     def test_identify_missing_markers(self):
-        dflow_data = DFlowData(self.ath_to_mocap_data_file)
+        dflow_data = DFlowData(self.path_to_mocap_data_file)
         data_frame = dflow_data._load_mocap_data(ignore_hbm=True)
         identified = dflow_data._identify_missing_markers(data_frame)
 

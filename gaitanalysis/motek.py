@@ -1018,7 +1018,7 @@ class DFlowData(object):
 
         # First four accelerometers.
         accelerometers = self.accel_column_labels[:4 * 3]
-        set_trace()
+        
         compensated_forces = \
                         octave.inertial_compensation(calibration_data_frame[forces].values,
                         calibration_data_frame[accelerometers].values,
@@ -1139,15 +1139,17 @@ class DFlowData(object):
         -----
 
         1. Loads the mocap and record modules into Pandas ``DataFrame``\s.
-        2. Shifts the Delsys signals in the mocap module data to accomodate
+        2. Relabels of columns of Pandas ``DataFrame`` to more meaningful
+           names.
+        3. Shifts the Delsys signals in the mocap module data to accomodate
            for the wireless time delay, ~96ms.
-        3. Identifies the missing values in the mocap marker data and
+        4. Identifies the missing values in the mocap marker data and
            replaces with NaN.
-        4. Returns statistics on how many missing values in the marker time
+        5. Returns statistics on how many missing values in the marker time
            series are present, the max consecutive missing values, etc.
-        5. Optionally, interpolates the missing marker values and replaces them with
+        6. Optionally, interpolates the missing marker values and replaces them with
            interpolated estimates.
-        6. Compensates the force measurments for the motion of the treadmill
+        7. Compensates the force measurments for the motion of the treadmill
            base, if needed.
 
             1. Pulls the compensation file path from meta data.
@@ -1160,11 +1162,11 @@ class DFlowData(object):
             7. Replace the force/moment measurements in the mocap data file with the
                 compensated forces/moments.
 
-        7. Optionally, low pass filter all human related data. (If there
+        8. Optionally, low pass filter all human related data. (If there
            wasn't a stationary platform, then these should always be
            filtered with the same low pass filter as the compensation
            algorithm used.)
-        8. Merges the data from the mocap module and record module into one
+        9. Merges the data from the mocap module and record module into one
            ``DataFrame``.
 
         """

@@ -357,7 +357,7 @@ class WalkingData(object):
         return right_strikes, left_strikes, right_offs, left_offs
 
 
-    def plot_landmarks(self, time, col_names, side, event='both', **kwargs):
+    def plot_landmarks(self, col_names, side, event='both', **kwargs):
         """
         Creates a plot of the desired signal overlaid 
         Parameters

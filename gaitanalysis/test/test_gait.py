@@ -185,10 +185,11 @@ class TestWalkingData():
         side = 'right'
         col_names = ['Right Vertical GRF','Right Knee Angle','Right Knee Moment']
         time = walking_data.raw_data.index.values.astype(float)
-        
-        walking_data.plot_landmarks(time, col_names, side, event='heelstrikes')
 
-        assert_raises(ValueError, walking_data.plot_landmarks)
+        assert_raises(ValueError, walking_data.plot_landmarks, [], side)
+        assert_raises(ValueError, walking_data.plot_landmarks, col_names, '')
+        # TODO: Test to see if user wants heelstrikes or toeoffs
+        # assert_raises(ValueError, walking_data.plot_landmarks, col_names, side, event='')
 
     def test_split_at(self, plot=False):
 
