@@ -759,7 +759,7 @@ class DFlowData(object):
         signals = ['EMG', 'AccX','AccY','AccZ']
         num_sensors = 16
         sensor_channels = {'Channel' + str(4*i+(j+1)+num_force_plate_channels) +
-            '.Anlg': 'Sensor_' + str(i+1).zfill(2) + '_' +
+            '.Anlg': 'Sensor' + str(i+1).zfill(2) + '_' +
             signal for i in range(num_sensors) for j,signal in enumerate(signals)}
         
         channel_names = dict(force_channels.items() + sensor_channels.items())
