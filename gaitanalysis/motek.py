@@ -502,7 +502,7 @@ class DFlowData(object):
         return data_frame
 
     def _shift_delsys_signals(self, data_frame, time_col='TimeStamp'):
-        """Returns a data frame in which the  Delsys columns are linearly
+        """Returns a data frame in which the Delsys columns are linearly
         interpolated (and extrapolated) at the time they were actually
         measured."""
 

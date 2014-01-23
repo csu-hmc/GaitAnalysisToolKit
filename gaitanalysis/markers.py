@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+# builtin
+from distutils.version import LooseVersion
+
 # external
 import numpy as np
 from numpy.core.umath_tests import matrix_multiply
@@ -131,7 +134,13 @@ def soederkvist(first_positions, second_positions):
     # Note that svd in NumPy svd returns the transpose of Q as compared to
     # Matlab/Octave.
     # n x 3 x 3, n x 3, n x 3 x 3 = svd(n x 3 x 3)
-    P, T, Q = np.linalg.svd(C)
+    if LooseVersion(np.__version__) < LooseVersion('1.8.0'):
+        P = np.zeros_like(C)
+        Q = np.zeros_like(C)
+        for i, c in enumerate(C):
+            P[i], T, Q[i] = np.linalg.svd(c)
+    else:
+        P, T, Q = np.linalg.svd(C)
 
     # n x 3 x 3 = n x 3 x 3 * n x 3 x 3
     rotations = matrix_multiply(P, Q)
