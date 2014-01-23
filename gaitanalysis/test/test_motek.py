@@ -535,7 +535,9 @@ class TestDFlowData():
 
         for attr in ['meta', 'mocap_column_labels', 'marker_column_labels',
                      'hbm_column_labels', 'hbm_column_indices',
-                     'non_hbm_column_indices']:
+                     'non_hbm_column_indices', 'analog_column_labels',
+                     'analog_column_indices', 'emg_column_labels',
+                     'accel_column_labels']:
             try:
                 getattr(data, attr)
             except AttributeError:
@@ -550,7 +552,9 @@ class TestDFlowData():
 
         for attr in ['meta', 'mocap_column_labels', 'marker_column_labels',
                      'hbm_column_labels', 'hbm_column_indices',
-                     'non_hbm_column_indices']:
+                     'non_hbm_column_indices', 'analog_column_labels',
+                     'analog_column_indices', 'emg_column_labels',
+                     'accel_column_labels']:
             try:
                 getattr(data, attr)
             except AttributeError:
@@ -577,7 +581,9 @@ class TestDFlowData():
 
         for attr in ['mocap_column_labels', 'marker_column_labels',
                      'hbm_column_labels', 'hbm_column_indices',
-                     'non_hbm_column_indices']:
+                     'non_hbm_column_indices', 'analog_column_labels',
+                     'analog_column_indices', 'emg_column_labels',
+                     'accel_column_labels']:
             try:
                 getattr(data, attr)
             except AttributeError:
@@ -669,8 +675,21 @@ class TestDFlowData():
                               len(self.mocap_labels_with_hbm))
         assert non_hbm_i == range(len(self.mocap_labels_without_hbm))
 
+    #def test_analog_column_labels(self):
+
+        #dflow_data = DFlowData(self.path_to_mocap_data_file)
+        #all_labels = dflow_data.mocap_column_labels
+
+        #anal_lab, anal_i, emg_lab, accel_lab = \
+        #  dflow_data._analog_column_labels(all_labels)
+
+        #assert == anal_lab
+        #assert == emg_lab
+        #assert == accel_lab
+        #assert anal_i == 
+
     def test_identify_missing_markers(self):
-        dflow_data = DFlowData(self.path_to_mocap_data_file)
+        dflow_data = DFlowData(self.ath_to_mocap_data_file)
         data_frame = dflow_data._load_mocap_data(ignore_hbm=True)
         identified = dflow_data._identify_missing_markers(data_frame)
 

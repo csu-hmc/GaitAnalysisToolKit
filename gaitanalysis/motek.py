@@ -457,19 +457,21 @@ class DFlowData(object):
         and the accelerometer signals as time series with respect to the
         D-Flow time stamp."""
 
+        compensation_data = pandas.read_csv(self.compensation_tsv_path, delimiter='\t')
+        compensation_data = self._relabel_analog_columns(compensation_data)
+
         force_labels = \
             self._force_column_labels(without_center_of_pressure=True)
         accel_labels = self.accel_column_labels
         necessary_columns = ['TimeStamp'] + force_labels + accel_labels
 
-        all_columns = self._header_labels(self.compensation_tsv_path)
-        indices = []
-        for i, label in enumerate(all_columns):
-            if label in necessary_columns:
-                indices.append(i)
+        #all_columns = self._header_labels(self.compensation_tsv_path)
+        #indices = []
+        #for i, label in enumerate(all_columns):
+        #    if label in necessary_columns:
+        #        indices.append(i)
 
-        return pandas.read_csv(self.compensation_tsv_path, delimiter='\t',
-                               usecols=indices)
+        return compensation_data[necessary_columns]
 
     def _clean_compensation_data(self, data_frame):
         """Returns a the data frame with Delsys signals shifted and all
@@ -657,8 +659,8 @@ class DFlowData(object):
 
         def channel_rename(channel_list):
             if self.meta_yml_path is not None:
-                if 'analog-channel-map' in self.meta['trial']:
-                    channel_dictionary = self.meta['trial']['analog-channel-map']
+                if 'analog-channel-names' in self.meta['trial']:
+                    channel_dictionary = self.meta['trial']['analog-channel-names']
                     for i, channel in enumerate(channel_list):
                         if channel in channel_dictionary:
                             channel_list[i] = channel_dictionary[channel]
@@ -676,18 +678,21 @@ class DFlowData(object):
                 analog_labels.append(label)
                 analog_indices.append(i)
 
-        analog_labels = channel_rename(analog_labels)
+        #analog_labels = channel_rename(analog_labels)
 
         # EMG and Accelerometer channels
         emg_column_labels, accel_column_labels = delsys_column_labels()
 
-        emg_column_labels = channel_rename(emg_column_labels)
-        accel_column_labels = channel_rename(accel_column_labels)
+        emg_column_labels = [label for label in emg_column_labels if label in analog_labels]
+        accel_column_labels = [label for label in accel_column_labels if label in analog_labels]
+
+        #emg_column_labels = channel_rename(emg_column_labels)
+        #accel_column_labels = channel_rename(accel_column_labels)
 
         """
         if self.meta_yml_path is not None:
-            if 'analog-channel-map' in self.meta['trial']:
-                channel_dictionary = self.meta['trial']['analog-channel-map']
+            if 'analog-channel-names' in self.meta['trial']:
+                channel_dictionary = self.meta['trial']['analog-channel-names']
                 for i,channel in enumerate(analog_labels):
                     if channel in channel_dictionary:   
                         analog_labels[i] = channel_dictionary[channel]
@@ -718,6 +723,61 @@ class DFlowData(object):
 
         return [side + suffix for side in self.force_plate_names for suffix
                 in self.force_plate_suffix if not f(suffix)]
+
+    def _relabel_analog_columns(self, data_frame):
+        """
+        Relabels analog channels in data frame to names defined in the
+        yml meta file. Channels not specified in the meta file are keep
+        their original names.
+
+        Parameters
+        ==========
+        data_frame : pandas.DataFrame, size(n, m)
+
+        Returns
+        =======
+        data_frame : pandas.DataFrame, size(n, m
+            The same data frame with columns relabeled.
+
+        """
+
+        # default channel names
+        force_channels = {'Channel1.Anlg': 'F1Y1',
+                'Channel2.Anlg': 'F1Y2',
+                'Channel3.Anlg': 'F1Y3',
+                'Channel4.Anlg': 'F1X1',
+                'Channel5.Anlg': 'F1X2',
+                'Channel6.Anlg': 'F1Z1',
+                'Channel7.Anlg': 'F2Y1',
+                'Channel8.Anlg': 'F2Y2',
+                'Channel9.Anlg': 'F2Y3',
+                'Channel10.Anlg': 'F2X1',
+                'Channel11.Anlg': 'F2X2',
+                'Channel12.Anlg': 'F2Z1'}
+
+        num_force_plate_channels = 12
+        signals = ['EMG', 'AccX','AccY','AccZ']
+        num_sensors = 16
+        sensor_channels = {'Channel' + str(4*i+(j+1)+num_force_plate_channels) +
+            '.Anlg': 'Sensor_' + str(i+1).zfill(2) + '_' +
+            signal for i in range(num_sensors) for j,signal in enumerate(signals)}
+        
+        channel_names = dict(force_channels.items() + sensor_channels.items())
+        
+        # update labels from meta file
+        try:
+            channel_names.update(self.meta['trial']['analog-channel-names'])
+        except:
+            pass
+
+        data_frame.rename(columns=channel_names, inplace=True)
+
+        for column_label_list in (self.analog_column_labels, self.emg_column_labels, self.accel_column_labels):
+            for i,label in enumerate(column_label_list):
+                if label in channel_names:
+                    column_label_list[i] = channel_names[label]
+        
+        return data_frame
 
     def _identify_missing_markers(self, data_frame):
         """Returns the data frame in which all marker columns have had
@@ -786,7 +846,7 @@ class DFlowData(object):
 
         return data_frame
 
-    def _load_mocap_data(self, ignore_hbm=False, id_hbm_na=False, rename_analog_channels=True):
+    def _load_mocap_data(self, ignore_hbm=False, id_hbm_na=False):
         """Returns a data frame generated from the tsv mocap file.
 
         Parameters
@@ -816,9 +876,6 @@ class DFlowData(object):
                                        na_values=hbm_na_values)
             else:
                 data_frame =  pandas.read_csv(self.mocap_tsv_path, delimiter='\t')
-
-        if rename_analog_channels is True:
-            data_frame.rename(columns=self.meta['trial']['analog-channel-map'], inplace=True)
 
         return data_frame
         
@@ -961,13 +1018,13 @@ class DFlowData(object):
 
         # First four accelerometers.
         accelerometers = self.accel_column_labels[:4 * 3]
-
+        set_trace()
         compensated_forces = \
-            octave.inertial_compensation(calibration_data_frame[forces].values,
-                                         calibration_data_frame[accelerometers].values,
-                                         data_frame[self.treadmill_markers].values,
-                                         data_frame[forces].values,
-                                         data_frame[accelerometers].values)
+                        octave.inertial_compensation(calibration_data_frame[forces].values,
+                        calibration_data_frame[accelerometers].values,
+                        data_frame[self.treadmill_markers].values,
+                        data_frame[forces].values,
+                        data_frame[accelerometers].values)
 
         data_frame[forces] = compensated_forces
 
@@ -1114,6 +1171,8 @@ class DFlowData(object):
         if self.mocap_tsv_path is not None:
 
             raw_mocap_data_frame = self._load_mocap_data(ignore_hbm=True)
+
+            relabeled_mocap_data_frame = self._relabel_analog_columns(raw_mocap_data_frame)
 
             shifted_mocap_data_frame = self._shift_delsys_signals(raw_mocap_data_frame)
 

@@ -69,7 +69,9 @@ class TestWalkingData():
     def setup(self):
 
         time = time_vector(1000, 100)
-
+        cortex_time = time
+        dflow_time = time
+        
         omega = 2 * np.pi
 
         right_grf = 1000 * (0.75 + np.sin(omega * time))
@@ -87,7 +89,9 @@ class TestWalkingData():
             pandas.DataFrame({'Right Vertical GRF': right_grf,
                               'Left Vertical GRF': left_grf,
                               'Right Knee Angle': right_knee_angle,
-                              'Right Knee Moment': right_knee_moment},
+                              'Right Knee Moment': right_knee_moment,
+                              'Cortex Time': cortex_time,
+                              'D-Flow Time': dflow_time},
                              index=time)
 
         self.threshold = 10.0
@@ -172,6 +176,19 @@ class TestWalkingData():
 
         testing.assert_allclose(expected_left_offs, left_offs)
         testing.assert_allclose(expected_left_strikes, left_strikes)
+
+    def test_plot_landmarks(self):
+        walking_data = WalkingData(self.data_frame)
+        walking_data.grf_landmarks('Right Vertical GRF',
+                                   'Left Vertical GRF',
+                                   threshold=self.threshold)
+        side = 'right'
+        col_names = ['Right Vertical GRF','Right Knee Angle','Right Knee Moment']
+        time = walking_data.raw_data.index.values.astype(float)
+        
+        walking_data.plot_landmarks(time, col_names, side, event='heelstrikes')
+
+        assert_raises(ValueError, walking_data.plot_landmarks)
 
     def test_split_at(self, plot=False):
 

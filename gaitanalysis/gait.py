@@ -261,7 +261,7 @@ class WalkingData(object):
 
     def grf_landmarks(self, right_vertical_signal_col_name,
                       left_vertical_signal_col_name, method='force',
-                      do_plot=False, time_col='D-Flow Time', min_time=None,
+                      do_plot=False, min_time=None,
                       max_time=None, **kwargs):
 
         """Returns the times at which heel strikes and toe offs happen in
@@ -302,7 +302,7 @@ class WalkingData(object):
         def nearest_index(array, val):
             return np.abs(array - val).argmin()
 
-        time = self.raw_data[time_col].values.astype(float)
+        time = self.raw_data.index.values.astype(float)
 
         # Time range to consider.
 
@@ -378,6 +378,8 @@ class WalkingData(object):
             
         if side != 'right' and side != 'left':
             raise ValueError('Please indicate \'right\' or \'left\' side.')
+
+        time = self.raw_data.index.values.astype(float)
     
         fig, axes = plt.subplots(len(col_names), sharex=True)
     
@@ -391,22 +393,23 @@ class WalkingData(object):
             except TypeError:
                 ax = axes
                 
-            ax.plot(time[self.min_idx:self.max_idx], self.raw_data[col_name].values[self.min_idx:self.max_idx])
+            ax.plot(time[self.min_idx:self.max_idx],
+                    self.raw_data[col_name].values[self.min_idx:self.max_idx])
             
             if event == 'heelstrikes' or event == 'both':
                 for strike in self.strikes[side]:
-                    ax.plot(time[strike]*ones, ax.get_ylim(), 'r', label=side + ' heelstrikes')
+                    ax.plot(strike*ones, ax.get_ylim(), 'r', label=side + ' heelstrikes')
             
             if event == 'toeoffs' or event == 'both':
                 for off in self.offs[side]:
-                    ax.plot(time[off]*ones, ax.get_ylim(), 'b', label=side + ' toeoffs')
+                    ax.plot(off*ones, ax.get_ylim(), 'b', label=side + ' toeoffs')
     
             ax.set_ylabel(col_name)
         
         # draw only on the last axes
         ax.set_xlabel('Time [s]')
 
-        return
+        return axes
 
 
     def plot_steps(self, *col_names, **kwargs):
@@ -644,14 +647,14 @@ def gait_landmarks_from_grf(time, right_grf, left_grf,
             # 'Skip' first value because we're going to peak back at previous
             # index.
             if zero(ordinate[i]) and (not zero(ordinate[i+1])):
-                births.append(i + 1)
+                births.append(time[i + 1])
         return np.array(births)
 
     def death_times(ordinate):
         deaths = list()
         for i in range(len(ordinate) - 1):
             if (not zero(ordinate[i])) and zero(ordinate[i+1]):
-                deaths.append(i + 1)
+                deaths.append(time[i + 1])
         return np.array(deaths)
 
     # If the ground reaction forces are very noisy, it may help to low pass
@@ -698,7 +701,6 @@ def gait_landmarks_from_accel(time, right_accel, left_accel, threshold=0.33, **k
         Same as above, but for the left foot.
     """
     
-    # sample_rate = 1.0 / (time[1] - time[0])
     sample_rate = 1.0 / np.mean(np.diff(time))
     
     # Helper functions
@@ -756,16 +758,16 @@ def gait_landmarks_from_accel(time, right_accel, left_accel, threshold=0.33, **k
         
         for i, spike in enumerate(foot_spikes):
             if spike_time_diff[i] > spike_time_diff[i+1]:
-                heelstrikes.append(spike)
+                heelstrikes.append(time[spike])
             else:
-                toeoffs.append(spike)
+                toeoffs.append(time[spike])
             if i == len(foot_spikes) - 3:
                 if spike_time_diff[i] > spike_time_diff[i+1]:
-                    toeoffs.append(foot_spikes[i+1])
-                    heelstrikes.append(foot_spikes[i+2])
+                    toeoffs.append(time[foot_spikes[i+1]])
+                    heelstrikes.append(time[foot_spikes[i+2]])
                 else:
-                    toeoffs.append(foot_spikes[i+2])
-                    heelstrikes.append(foot_spikes[i+1])
+                    toeoffs.append(time[foot_spikes[i+2]])
+                    heelstrikes.append(time[foot_spikes[i+1]])
                 break
         
         return np.array(heelstrikes), np.array(toeoffs)
