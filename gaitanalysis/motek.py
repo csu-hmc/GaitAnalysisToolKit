@@ -657,16 +657,6 @@ class DFlowData(object):
     
             return emg_column_labels, accel_column_labels
 
-        def channel_rename(channel_list):
-            if self.meta_yml_path is not None:
-                if 'analog-channel-names' in self.meta['trial']:
-                    channel_dictionary = self.meta['trial']['analog-channel-names']
-                    for i, channel in enumerate(channel_list):
-                        if channel in channel_dictionary:
-                            channel_list[i] = channel_dictionary[channel]
-                    # TODO: Issue warning for column names missing in meta file
-            return channel_list
-
         # All analog channels
         analog_labels = []
         analog_indices = []
@@ -678,25 +668,11 @@ class DFlowData(object):
                 analog_labels.append(label)
                 analog_indices.append(i)
 
-        #analog_labels = channel_rename(analog_labels)
-
         # EMG and Accelerometer channels
         emg_column_labels, accel_column_labels = delsys_column_labels()
 
         emg_column_labels = [label for label in emg_column_labels if label in analog_labels]
         accel_column_labels = [label for label in accel_column_labels if label in analog_labels]
-
-        #emg_column_labels = channel_rename(emg_column_labels)
-        #accel_column_labels = channel_rename(accel_column_labels)
-
-        """
-        if self.meta_yml_path is not None:
-            if 'analog-channel-names' in self.meta['trial']:
-                channel_dictionary = self.meta['trial']['analog-channel-names']
-                for i,channel in enumerate(analog_labels):
-                    if channel in channel_dictionary:   
-                        analog_labels[i] = channel_dictionary[channel]
-        """
 
         return analog_labels, analog_indices, emg_column_labels, accel_column_labels
 
@@ -1095,10 +1071,7 @@ class DFlowData(object):
         (010)
         """
 
-        accel_channels = []
-        for i,channel in enumerate(self.analog_column_labels):
-            if 'Acc' in channel:
-                accel_channels.append(self.analog_column_labels[i])        
+        accel_channels = self.accel_column_labels       
 
         cal = pandas.read_csv(self.meta['trial']['files']['accel-calibration'])
 

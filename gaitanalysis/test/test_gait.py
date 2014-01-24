@@ -148,7 +148,7 @@ class TestWalkingData():
             assert col in walking_data.raw_data.columns
 
     def test_grf_landmarks(self, plot=False):
-
+        # Test for force plate version
         walking_data = WalkingData(self.data_frame)
 
         right_strikes, left_strikes, right_offs, left_offs = \
@@ -176,6 +176,8 @@ class TestWalkingData():
 
         testing.assert_allclose(expected_left_offs, left_offs)
         testing.assert_allclose(expected_left_strikes, left_strikes)
+
+        # TODO : Add test for accelerometer based gait landmarks
 
     def test_plot_landmarks(self):
         walking_data = WalkingData(self.data_frame)

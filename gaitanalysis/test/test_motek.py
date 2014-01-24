@@ -251,31 +251,31 @@ class TestDFlowData():
 
     # These are these are the XYZ components of the first 4 accelerometers.
     delsys_labels = ["Channel13.Anlg", "Channel14.Anlg",
-                                  "Channel15.Anlg", "Channel16.Anlg",
-                                  "Channel17.Anlg", "Channel18.Anlg",
-                                  "Channel19.Anlg", "Channel20.Anlg",
-                                  "Channel21.Anlg", "Channel22.Anlg",
-                                  "Channel23.Anlg", "Channel24.Anlg",
-                                  "Channel25.Anlg", "Channel26.Anlg",
-                                  "Channel27.Anlg", "Channel28.Anlg"]
+                     "Channel15.Anlg", "Channel16.Anlg",
+                     "Channel17.Anlg", "Channel18.Anlg",
+                     "Channel19.Anlg", "Channel20.Anlg",
+                     "Channel21.Anlg", "Channel22.Anlg",
+                     "Channel23.Anlg", "Channel24.Anlg",
+                     "Channel25.Anlg", "Channel26.Anlg",
+                     "Channel27.Anlg", "Channel28.Anlg"]
 
     relabeled_delsys_labels = ["Front_Left_EMG", "Front_Left_AccX",
-                                            "Front_Left_AccY", "Front_Left_AccZ",
-                                            "Back_Left_EMG", "Back_Left_AccX",
-                                            "Back_Left_AccY", "Back_Left_AccZ",
-                                            "Front_Right_EMG", "Front_Right_AccX",
-                                            "Front_Right_AccY", "Front_Right_AccZ",
-                                            "Back_Right_EMG", "Back_Right_AccX",
-                                            "Back_Right_AccY", "Back_Right_AccZ"]
+                               "Front_Left_AccY", "Front_Left_AccZ",
+                               "Back_Left_EMG", "Back_Left_AccX",
+                               "Back_Left_AccY", "Back_Left_AccZ",
+                               "Front_Right_EMG", "Front_Right_AccX",
+                               "Front_Right_AccY", "Front_Right_AccZ",
+                               "Back_Right_EMG", "Back_Right_AccX",
+                               "Back_Right_AccY", "Back_Right_AccZ"]
 
     default_delsys_labels = ["Sensor01_EMG", "Sensor01_AccX",
-                                          "Sensor01_AccY", "Sensor01_AccZ",
-                                          "Sensor02_EMG", "Sensor02_AccX",
-                                          "Sensor02_AccY", "Sensor02_AccZ",
-                                          "Sensor03_EMG", "Sensor03_AccX",
-                                          "Sensor03_AccY", "Sensor03_AccZ",
-                                          "Sensor04_EMG", "Sensor04_AccX",
-                                          "Sensor04_AccY", "Sensor04_AccZ"]
+                             "Sensor01_AccY", "Sensor01_AccZ",
+                             "Sensor02_EMG", "Sensor02_AccX",
+                             "Sensor02_AccY", "Sensor02_AccZ",
+                             "Sensor03_EMG", "Sensor03_AccX",
+                             "Sensor03_AccY", "Sensor03_AccZ",
+                             "Sensor04_EMG", "Sensor04_AccX",
+                             "Sensor04_AccY", "Sensor04_AccZ"]
 
     mocap_labels_without_hbm = (['TimeStamp', 'FrameNumber'] +
                                 all_marker_labels +
@@ -714,18 +714,66 @@ class TestDFlowData():
                               len(self.mocap_labels_with_hbm))
         assert non_hbm_i == range(len(self.mocap_labels_without_hbm))
 
-    #def test_analog_column_labels(self):
+    def test_analog_channel_labels(self):
+        dflow_data = DFlowData(self.path_to_mocap_data_file)
+        all_labels = dflow_data.mocap_column_labels
 
-        #dflow_data = DFlowData(self.path_to_mocap_data_file)
-        #all_labels = dflow_data.mocap_column_labels
+        anal_lab, anal_ind, emg_lab, accel_lab = \
+              dflow_data._analog_column_labels(all_labels)
 
-        #anal_lab, anal_i, emg_lab, accel_lab = \
-        #  dflow_data._analog_column_labels(all_labels)
+        assert anal_lab == self.cortex_analog_labels + self.delsys_labels
+        
+        for label in emg_lab + accel_lab: 
+            assert label in self.delsys_labels
 
-        #assert == anal_lab
-        #assert == emg_lab
-        #assert == accel_lab
-        #assert anal_i == 
+    def test_relabel_analog_column(self):
+
+        # Test if analog columns are relabeled to what is indicated in
+        # meta file
+        dflow_data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file, 
+                               meta_yml_path=self.path_to_meta_data_file)
+
+        relabeled_data = dflow_data._relabel_analog_columns(self.mocap_data_frame.copy())
+        
+        relabeled_columns = relabeled_data.columns
+        anal_lab = dflow_data.analog_column_labels
+        emg_lab = dflow_data.emg_column_labels
+        accel_lab = dflow_data.accel_column_labels
+
+
+        for col in self.relabeled_cortex_analog_labels + \
+                              self.relabeled_delsys_labels:
+            assert col in relabeled_columns
+
+        for col in self.relabeled_cortex_analog_labels + \
+                              self.relabeled_delsys_labels:
+            assert col in anal_lab
+
+        for col in self.relabeled_delsys_labels:
+            assert col in emg_lab + accel_lab
+
+        # Test if analog channels are relabeled to default names in absence
+        # of a meta file
+        dflow_data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file)
+
+        relabeled_data = dflow_data._relabel_analog_columns(self.mocap_data_frame.copy())
+        
+        relabeled_columns = relabeled_data.columns
+        anal_lab = dflow_data.analog_column_labels
+        emg_lab = dflow_data.emg_column_labels
+        accel_lab = dflow_data.accel_column_labels
+
+
+        for col in self.default_cortex_analog_labels + \
+                              self.default_delsys_labels:
+            assert col in relabeled_columns
+
+        for col in self.default_cortex_analog_labels + \
+                              self.default_delsys_labels:
+            assert col in anal_lab
+
+        for col in self.default_delsys_labels:
+            assert col in emg_lab + accel_lab
 
     def test_shift_delsys_signals(self):
         dflow_data = DFlowData(self.path_to_mocap_data_file)
@@ -840,6 +888,11 @@ class TestDFlowData():
         data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
                          record_tsv_path=self.path_to_record_data_file,
                          meta_yml_path=self.path_to_meta_data_file)
+        # TODO : Add test.
+
+    def test_calibrate_accel_data(self):
+        data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file)
+        
         # TODO : Add test.
 
     def test_clean_data(self):
