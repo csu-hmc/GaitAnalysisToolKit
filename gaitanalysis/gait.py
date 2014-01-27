@@ -321,22 +321,18 @@ class WalkingData(object):
         else:
             raise ValueError('min_time out of range.')
 
-
-        if method == 'force':
-            right_strikes, left_strikes, right_offs, left_offs = \
-                gait_landmarks_from_grf(time[self.min_idx:self.max_idx],
-                                        self.raw_data[right_vertical_signal_col_name].values[self.min_idx:self.max_idx],
-                                        self.raw_data[left_vertical_signal_col_name].values[self.min_idx:self.max_idx],
-                                        **kwargs)
-        elif method == 'accel':
-            right_strikes, left_strikes, right_offs, left_offs = \
-                gait_landmarks_from_accel(time[self.min_idx:self.max_idx],
-                                          self.raw_data[right_vertical_signal_col_name].values[self.min_idx:self.max_idx],
-                                          self.raw_data[left_vertical_signal_col_name].values[self.min_idx:self.max_idx],
-                                          **kwargs)
-        else:
+        
+        if method is not 'accel' and method is not 'force':
             raise ValueError('{} is not a valid method'.format(method))
-            # raise ValueError('Must choose either \'force\' or \'accel\'.')
+
+        func = {'force' : gait_landmarks_from_grf,
+                'accel' : gait_landmarks_from_accel}
+
+        right_strikes, left_strikes, right_offs, left_offs = \
+            func[method](time[self.min_idx:self.max_idx],
+                                    self.raw_data[right_vertical_signal_col_name].values[self.min_idx:self.max_idx],
+                                    self.raw_data[left_vertical_signal_col_name].values[self.min_idx:self.max_idx],
+                                    **kwargs)
 
         right_strikes += self.min_idx
         left_strikes += self.min_idx

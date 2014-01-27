@@ -633,6 +633,11 @@ class DFlowData(object):
         analog_indices : list of integers
             The indices of the analog columns with respect to the indices of
             `labels`.
+        emg_column_labels : list of strings
+            The labels of emg channels in the order found in `labels`
+        accel_column_labels : list of strings
+            The labels of accelerometer channels in the order found
+            in `labels`
         """
 
         def delsys_column_labels():
@@ -671,6 +676,7 @@ class DFlowData(object):
         # EMG and Accelerometer channels
         emg_column_labels, accel_column_labels = delsys_column_labels()
 
+        # Remove channels from the default list that are not in `analog_labels`
         emg_column_labels = [label for label in emg_column_labels if label in analog_labels]
         accel_column_labels = [label for label in accel_column_labels if label in analog_labels]
 
@@ -705,6 +711,8 @@ class DFlowData(object):
         Relabels analog channels in data frame to names defined in the
         yml meta file. Channels not specified in the meta file are keep
         their original names.
+        self.analog_column_labels, self.emg_column_labels, and 
+        self.accel_column_labels are updated with the new names.
 
         Parameters
         ==========
@@ -1063,7 +1071,29 @@ class DFlowData(object):
     def _calibrate_accel_data(self, data_frame, y1=0, y2=9.81):
         """Two-point calibration of accelerometer signals.
         Converts from voltage to meters/second^2
-        Assuming a triaxial accelerometer
+
+        Parameters
+        ==========
+        data_frame : pandas.DataFrame
+            Accelerometer data  in volts to be calibrated
+        y1 : float, optional
+        y2 : float, optional
+
+        Returns
+        =======
+        data_frame : pandas.DataFrame
+            Calibrated accelerometer data in m/s^2
+
+        Notes
+        =====
+        A calibration file must be specified in the meta file and its
+        structure is as follows:
+        There must be a column for each accelerometer signal to be calibrated,
+        so three columns per sensor. There must be three rows of accelerometer
+        readings. The first row is the reading when the sensors are placed with
+        z-axis pointing straight up. The second row is the reading when the
+        x-axis is pointing straight up. The third row is the reading when the
+        y-axis is pointing straight up.
         (xyz)
         -----
         (001)
@@ -1075,7 +1105,7 @@ class DFlowData(object):
 
         cal = pandas.read_csv(self.meta['trial']['files']['accel-calibration'])
 
-        cal = cal.drop('Time', 1)
+        cal.drop('Time', 1, inplace=True)
 
         if len(accel_channels) != cal.shape[1]:
             raise ValueError("Calibration file doesn't match mocap data.")
@@ -1149,7 +1179,7 @@ class DFlowData(object):
 
             relabeled_mocap_data_frame = self._relabel_analog_columns(raw_mocap_data_frame)
 
-            shifted_mocap_data_frame = self._shift_delsys_signals(raw_mocap_data_frame)
+            shifted_mocap_data_frame = self._shift_delsys_signals(relabeled_mocap_data_frame)
 
             identified_mocap_data_frame = \
                 self._identify_missing_markers(shifted_mocap_data_frame)
