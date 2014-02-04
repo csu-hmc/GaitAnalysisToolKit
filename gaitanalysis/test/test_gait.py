@@ -151,20 +151,30 @@ class TestWalkingData():
         # Test for force plate version
         walking_data = WalkingData(self.data_frame)
 
+        min_idx = len(self.data_frame) / 3
+        max_idx = 2*len(self.data_frame) / 3
+
+        min_time = self.data_frame.index.astype(float)[min_idx]
+        max_time = self.data_frame.index.astype(float)[max_idx]
+
         right_strikes, left_strikes, right_offs, left_offs = \
             walking_data.grf_landmarks('Right Vertical GRF',
                                        'Left Vertical GRF',
+                                       min_time=min_time,
+                                       max_time=max_time,
                                        threshold=self.threshold,
                                        do_plot=plot)
 
-        right_zero = self.data_frame['Right Vertical GRF'] < self.threshold
+        right_zero = self.data_frame['Right Vertical GRF'][min_idx:max_idx] \
+                        < self.threshold
         instances = right_zero.apply(lambda x: 1 if x else 0).diff()
         expected_right_offs = \
             instances[instances == 1].index.values.astype(float)
         expected_right_strikes = \
             instances[instances == -1].index.values.astype(float)
 
-        left_zero = self.data_frame['Left Vertical GRF'] < self.threshold
+        left_zero = self.data_frame['Left Vertical GRF'][min_idx:max_idx] \
+                        < self.threshold
         instances = left_zero.apply(lambda x: 1 if x else 0).diff()
         expected_left_offs = \
             instances[instances == 1].index.values.astype(float)
