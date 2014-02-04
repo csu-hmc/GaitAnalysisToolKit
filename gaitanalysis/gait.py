@@ -321,7 +321,7 @@ class WalkingData(object):
         else:
             raise ValueError('min_time out of range.')
 
-        
+
         if method is not 'accel' and method is not 'force':
             raise ValueError('{} is not a valid method'.format(method))
 
@@ -333,11 +333,6 @@ class WalkingData(object):
                                     self.raw_data[right_vertical_signal_col_name].values[self.min_idx:self.max_idx],
                                     self.raw_data[left_vertical_signal_col_name].values[self.min_idx:self.max_idx],
                                     **kwargs)
-
-        right_strikes += self.min_idx
-        left_strikes += self.min_idx
-        right_offs += self.min_idx
-        left_offs += self.min_idx
 
         self.strikes = {}
         self.offs = {}
@@ -355,7 +350,7 @@ class WalkingData(object):
 
     def plot_landmarks(self, col_names, side, event='both', **kwargs):
         """
-        Creates a plot of the desired signal overlaid 
+        Creates a plot of the desired signal overlaid
         Parameters
         ==========
         time : array_like, shape(n,)
@@ -364,45 +359,45 @@ class WalkingData(object):
             A variable number of strings naming the columns to plot
         side : {right|left}
         event : {heelstrikes|toeoffs|both}
-    
+
         Returns
         =======
         """
 
-    
+
         if len(col_names) == 0:
             raise ValueError('Please supply some column names to plot.')
-            
+
         if side != 'right' and side != 'left':
             raise ValueError('Please indicate \'right\' or \'left\' side.')
 
         time = self.raw_data.index.values.astype(float)
-    
+
         fig, axes = plt.subplots(len(col_names), sharex=True)
-    
+
         fig.suptitle('Gait Events')
-        
+
         ones = np.array([1, 1])
-        
+
         for i, col_name in enumerate(col_names):
             try:
                 ax = axes[i]
             except TypeError:
                 ax = axes
-                
+
             ax.plot(time[self.min_idx:self.max_idx],
                     self.raw_data[col_name].values[self.min_idx:self.max_idx])
-            
+
             if event == 'heelstrikes' or event == 'both':
                 for strike in self.strikes[side]:
                     ax.plot(strike*ones, ax.get_ylim(), 'r', label=side + ' heelstrikes')
-            
+
             if event == 'toeoffs' or event == 'both':
                 for off in self.offs[side]:
                     ax.plot(off*ones, ax.get_ylim(), 'b', label=side + ' toeoffs')
-    
+
             ax.set_ylabel(col_name)
-        
+
         # draw only on the last axes
         ax.set_xlabel('Time [s]')
 
@@ -687,7 +682,7 @@ def gait_landmarks_from_grf(time, right_grf, left_grf,
     left_toe_offs = death_times(left_grf)
 
     return right_foot_strikes, left_foot_strikes, right_toe_offs, left_toe_offs
-    
+
 def gait_landmarks_from_accel(time, right_accel, left_accel, threshold=0.33, **kwargs):
     """
     Obtain right and left foot strikes from the time series data of accelerometers placed on the heel.
@@ -714,62 +709,62 @@ def gait_landmarks_from_accel(time, right_accel, left_accel, threshold=0.33, **k
     left_toe_offs : np.array
         Same as above, but for the left foot.
     """
-    
+
     sample_rate = 1.0 / np.mean(np.diff(time))
-    
+
     # Helper functions
     # ----------------
-    
+
     def filter(data):
         from scipy.signal import blackman, firwin, filtfilt
-        
+
         a = np.array([1])
-    
+
         # 10 Hz highpass
         n = 127; # filter order
         Wn = 10 / (sample_rate/2) # cut-off frequency
         window = blackman(n)
         b = firwin(n, Wn, window='blackman', pass_zero=False)
         data = filtfilt(b, a, data)
-        
+
         data = abs(data) # rectify signal
-        
+
         # 5 Hz lowpass
         Wn = 5 / (sample_rate/2)
         b = firwin(n, Wn, window='blackman')
         data = filtfilt(b, a, data)
-        
-        return data 
-        
+
+        return data
+
     def peak_detection(x):
-        
+
         dx = process.derivative(time, x, method="combination")
         dx[dx > 0] = 1
         dx[dx < 0] = -1
         ddx = process.derivative(time, dx, method="combination")
-        
+
         peaks = []
         for i, spike in enumerate(ddx < 0):
             if spike == True:
                 peaks.append(i)
-                
+
         peaks = peaks[::2]
-        
+
         threshold_value = (max(x) - min(x))*threshold + min(x)
-        
-        peak_indices = []    
+
+        peak_indices = []
         for i in peaks:
             if x[i] > threshold_value:
                 peak_indices.append(i)
-        
+
         return peak_indices
-    
+
     def determine_foot_event(foot_spikes):
         heelstrikes = []
         toeoffs = []
-        
+
         spike_time_diff = np.diff(foot_spikes)
-        
+
         for i, spike in enumerate(foot_spikes):
             if spike_time_diff[i] > spike_time_diff[i+1]:
                 heelstrikes.append(time[spike])
@@ -783,19 +778,19 @@ def gait_landmarks_from_accel(time, right_accel, left_accel, threshold=0.33, **k
                     toeoffs.append(time[foot_spikes[i+2]])
                     heelstrikes.append(time[foot_spikes[i+1]])
                 break
-        
+
         return np.array(heelstrikes), np.array(toeoffs)
-    
+
     # ----------------
-    
+
     right_accel_filtered = filter(right_accel)
     right_spikes = peak_detection(right_accel_filtered)
     (right_foot_strikes, right_toe_offs) = \
         determine_foot_event(right_spikes)
-    
+
     left_accel_filtered = filter(left_accel)
     left_spikes = peak_detection(left_accel_filtered)
     (left_foot_strikes, left_toe_offs) = \
         determine_foot_event(left_spikes)
-        
+
     return right_foot_strikes, left_foot_strikes, right_toe_offs, left_toe_offs
