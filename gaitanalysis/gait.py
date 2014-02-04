@@ -116,6 +116,8 @@ def interpolate(data_frame, time):
 class WalkingData(object):
     """A class to store typical walking data."""
 
+    attrs_to_store = ['raw_data', 'steps', 'strikes', 'offs', 'step_data']
+
     def __init__(self, data_frame):
         """Initializes the data structure.
 
@@ -503,6 +505,29 @@ class WalkingData(object):
                 process.derivative(self.raw_data.index.values.astype(float),
                                    self.raw_data[col_name],
                                    method='combination')
+
+    def save(self, filename):
+        """Saves all data to disk."""
+
+        # All data: steps, step_data, raw_data, strikes, offs
+        with get_store(filename) as store:
+            for item in possible_data:
+                try:
+                    data = getattr(self, item)
+                except AttributeError:
+                    pass
+                else:
+                    store[item] = data
+
+    def load(self, filename):
+        store = HDFStore(filename)
+        for item in ['steps', 'step_data', 'raw_data', 'strikes', 'offs']:
+            try:
+                data = store[item]
+            except AttributeError:
+                pass
+            else:
+                setattr(self, item, data)
 
 
 def gait_landmarks_from_grf(time, right_grf, left_grf,
