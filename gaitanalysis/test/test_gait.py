@@ -228,4 +228,26 @@ class TestWalkingData():
 
         assert_raises(ValueError, walking_data.plot_steps)
 
+    def test_save_load(self):
 
+        walking_data = WalkingData(self.data_frame)
+        walking_data.grf_landmarks('Right Vertical GRF',
+                                   'Left Vertical GRF',
+                                   threshold=self.threshold)
+        walking_data.split_at('right')
+
+        walking_data.save('some_data.h5')
+
+        walking_data_from_file = WalkingData('some_data.h5')
+
+        assert walking_data.raw_data == walking_data_from_file.raw_data
+        assert walking_data.steps == walking_data_from_file.steps
+        assert walking_data.step_data == walking_data_from_file.step_data
+
+    def teardown(self):
+        try:
+            open('some_data.h5')
+        except IOError:
+            pass
+        else:
+            os.remove('some_data.h5')

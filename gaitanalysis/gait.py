@@ -116,16 +116,19 @@ def interpolate(data_frame, time):
 class WalkingData(object):
     """A class to store typical walking data."""
 
-    attrs_to_store = ['raw_data', 'steps', 'strikes', 'offs', 'step_data']
+    # TODO : self.strikes and self.offs would be nice to store, but they
+    # aren't pandas data types so HDF5Store doesn't handled them.
+    attrs_to_store = ['raw_data', 'steps', 'step_data']
 
-    def __init__(self, data_frame):
+    def __init__(self, data):
         """Initializes the data structure.
 
         Parameters
         ==========
-        data_frame : pandas.DataFrame
+        data : pandas.DataFrame or string
             A data frame with an index of time and columns for each variable
-            measured during a walking run.
+            measured during a walking run or the path to a HDF5 file created
+            from ``WalkingData.save()``.
 
         """
         # Could have a real time index:
@@ -133,7 +136,13 @@ class WalkingData(object):
         # data_frame.index = new_index
         # data.index.values.astype(float)*1e-9
 
-        self.raw_data = data_frame
+        try:
+            f = open(data)
+        except TypeError:
+            self.raw_data = data
+        else:
+            f.close()
+            self.load(data)
 
     def inverse_dynamics_2d(self, left_leg_markers, right_leg_markers,
                             left_leg_forces, right_leg_forces, body_mass,
@@ -157,7 +166,7 @@ class WalkingData(object):
             The names of the columns of the ground reaction forces and
             moments (Fx, Fy, Mz).
         body_mass : float
-            The mass in kilograms of the subject.
+            The mass, in kilograms, of the subject.
         low_pass_cutoff : float
             The cutoff frequency in hertz.
 
@@ -507,11 +516,17 @@ class WalkingData(object):
                                    method='combination')
 
     def save(self, filename):
-        """Saves all data to disk."""
+        """Saves data to disk via HDF5 (PyTables).
 
-        # All data: steps, step_data, raw_data, strikes, offs
-        with get_store(filename) as store:
-            for item in possible_data:
+        Parameters
+        ==========
+        filename : string
+            Path to an HDF5 file.
+
+        """
+
+        with pandas.get_store(filename) as store:
+            for item in self.attrs_to_store:
                 try:
                     data = getattr(self, item)
                 except AttributeError:
@@ -520,14 +535,22 @@ class WalkingData(object):
                     store[item] = data
 
     def load(self, filename):
-        store = HDFStore(filename)
-        for item in ['steps', 'step_data', 'raw_data', 'strikes', 'offs']:
-            try:
-                data = store[item]
-            except AttributeError:
-                pass
-            else:
-                setattr(self, item, data)
+        """Loads data from disk via HDF5 (PyTables).
+
+        Parameters
+        ==========
+        filename : string
+            Path to an HDF5 file.
+
+        """
+        with pandas.get_store(filename) as store:
+            for item in self.attrs_to_store:
+                try:
+                    data = store[item]
+                except AttributeError:
+                    pass
+                else:
+                    setattr(self, item, data)
 
 
 def gait_landmarks_from_grf(time, right_grf, left_grf,
