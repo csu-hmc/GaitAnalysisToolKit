@@ -116,9 +116,7 @@ def interpolate(data_frame, time):
 class WalkingData(object):
     """A class to store typical walking data."""
 
-    # TODO : self.strikes and self.offs would be nice to store, but they
-    # aren't pandas data types so HDF5Store doesn't handled them.
-    attrs_to_store = ['raw_data', 'steps', 'step_data']
+    attrs_to_store = ['raw_data', 'steps', 'step_data', 'strikes', 'offs']
 
     def __init__(self, data):
         """Initializes the data structure.
@@ -532,7 +530,11 @@ class WalkingData(object):
                 except AttributeError:
                     pass
                 else:
-                    store[item] = data
+                    if item in ['strikes', 'offs']:
+                        store[item + '_right'] = pandas.Series(data['right'])
+                        store[item + '_left'] = pandas.Series(data['left'])
+                    else:
+                        store[item] = data
 
     def load(self, filename):
         """Loads data from disk via HDF5 (PyTables).
@@ -546,7 +548,12 @@ class WalkingData(object):
         with pandas.get_store(filename) as store:
             for item in self.attrs_to_store:
                 try:
-                    data = store[item]
+                    if item in ['strikes', 'offs']:
+                        data = {}
+                        data['right'] = store[item + '_right'].values
+                        data['left'] = store[item + '_left'].values
+                    else:
+                        data = store[item]
                 except AttributeError:
                     pass
                 else:

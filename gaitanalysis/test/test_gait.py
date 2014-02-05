@@ -243,6 +243,14 @@ class TestWalkingData():
         assert walking_data.raw_data == walking_data_from_file.raw_data
         assert walking_data.steps == walking_data_from_file.steps
         assert walking_data.step_data == walking_data_from_file.step_data
+        assert all(walking_data.strikes['right'] ==
+                   walking_data_from_file.strikes['right'])
+        assert all(walking_data.strikes['left'] ==
+                   walking_data_from_file.strikes['left'])
+        assert all(walking_data.offs['right'] ==
+                   walking_data_from_file.offs['right'])
+        assert all(walking_data.offs['left'] ==
+                   walking_data_from_file.offs['left'])
 
     def teardown(self):
         try:
