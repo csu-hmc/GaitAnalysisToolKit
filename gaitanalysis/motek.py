@@ -1068,6 +1068,53 @@ class DFlowData(object):
         else:
             return mocap_data_frame
 
+    def _orient_accelerometers(self, data_frame):
+        """
+        Parameters
+        ==========
+        orientation : np.array, shape(3,3)
+            The orientation matrix of triaxial accelerometer
+        x_prime : np.array, shape(n,)
+
+
+        Returns
+        =======
+
+        [x]   [1 0 0][x']
+        [y] = [0 1 0][y']
+        [z]   [0 0 1][z']
+        """
+
+        def orient_accelerometer(orientation, x_prime, y_prime, z_prime):
+            if np.shape(orientation) != (3, 3):
+                raise ValueError("")
+            if ((abs(orientation) != 1) * (orientation != 0)).any():
+                raise ValueError("")
+            for row in range(3):
+                if abs(orientation[row,:].sum()) != 1:
+                    raise ValueError("")
+    
+            if not (np.shape(x_prime) == np.shape(y_prime) == np.shape(z_prime)):
+                raise ValueError("")
+    
+            x_inertial = np.zeros(np.shape(x_prime))
+            y_inertial = np.zeros(np.shape(y_prime))
+            z_inertial = np.zeros(np.shape(z_prime))
+            
+            for row, world in enumerate([x_inertial, y_inertial, z_inertial]):
+                for col, local in enumerate([x_prime, y_prime, z_prime]):
+                    world += orientation[row,col] * local
+    
+            return x_inertial, y_inertial, z_inertial
+
+        for sensor, rot_matrix in self.meta['trial']['sensor-orientation'].iteritems():
+            data_frame[sensor + '_AccX'], data_frame[sensor + '_AccY'], \
+                data_frame[sensor + '_AccZ'] = orient_accelerometer(
+                        np.array(rot_matrix), data_frame[sensor + '_AccX'],
+                        data_frame[sensor + '_AccY'], data_frame[sensor + '_AccZ'])
+
+        return data_frame
+
     def _calibrate_accel_data(self, data_frame, y1=0, y2=9.81):
         """Two-point calibration of accelerometer signals.
         Converts from voltage to meters/second^2

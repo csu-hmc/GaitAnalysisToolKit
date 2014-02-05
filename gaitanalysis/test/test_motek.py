@@ -358,6 +358,13 @@ class TestDFlowData():
                                     "Channel27.Anlg": "Back_Right_AccY",
                                     "Channel28.Anlg": "Back_Right_AccZ",
                                 },
+                            'sensor-orientation':
+                                {
+                                    "Front_Left": [[0, 1, 0], [1, 0, 0], [0, 0, -1]],
+                                    "Back_Left": [[0, -1, 0], [1, 0, 0], [0, 0, 1]],
+                                    "Front_Right": [[0, 0, 1], [1, 0, 0], [0, 1, 0]],
+                                    "Back_Right": [[0, 1, 0], [0, 0, 1], [1, 0, 0]],
+                                },
                            'data-description':
                                {
                                     "ROT_REF.PosX": "A marker place on the rigid structure of the treadmill.",
@@ -894,6 +901,23 @@ class TestDFlowData():
         data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file)
         
         # TODO : Add test.
+
+    def test_orient_accelerometers(self):
+        data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
+                         meta_yml_path=self.path_to_meta_data_file)
+
+        relabeled_data = data._relabel_analog_columns(self.mocap_data_frame.copy())
+        reoriented_data = data._orient_accelerometers(relabeled_data.copy())
+
+        testing.assert_allclose(reoriented_data['Front_Left_EMG'],
+                relabeled_data['Front_Left_EMG'])
+        testing.assert_allclose(reoriented_data['Back_Left_AccX'],
+                -relabeled_data['Back_Left_AccY'])
+        testing.assert_allclose(reoriented_data['Front_Right_AccY'],
+                relabeled_data['Front_Right_AccX'])
+        testing.assert_allclose(reoriented_data['Back_Right_AccZ'],
+                relabeled_data['Back_Right_AccX'])
+        
 
     def test_clean_data(self):
         data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,

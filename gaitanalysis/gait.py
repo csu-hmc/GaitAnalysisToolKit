@@ -260,6 +260,12 @@ class WalkingData(object):
 
         return self.raw_data
 
+    def tpose(self):
+        # TODO: Implement this
+        # get weight : mean(F1Y + F2Y) => kgs
+        # get specific accelerometer orientation; saggital and frontal plane
+        return
+
     def grf_landmarks(self, right_vertical_signal_col_name,
                       left_vertical_signal_col_name, method='force',
                       do_plot=False, min_time=None,
