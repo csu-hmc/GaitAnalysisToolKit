@@ -1072,17 +1072,15 @@ class DFlowData(object):
         """
         Parameters
         ==========
-        orientation : np.array, shape(3,3)
-            The orientation matrix of triaxial accelerometer
-        x_prime : np.array, shape(n,)
-
+        mocap_data_frame : pandas.DataFrame
+            DataFrame containing accelerometer signals to be placed in treadmill
+            reference frame.
 
         Returns
         =======
-
-        [x]   [1 0 0][x']
-        [y] = [0 1 0][y']
-        [z]   [0 0 1][z']
+        mocap_data_frame : pandas.DataFrame
+            DataFrame containing accelerometer signals in treadmill
+            reference frame.
         """
 
         def orient_accelerometer(orientation, x_prime, y_prime, z_prime):
