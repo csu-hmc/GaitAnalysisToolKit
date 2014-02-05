@@ -50,8 +50,9 @@ Installation
 ============
 
 You will need Python 2.7 and setuptools to install the packages. Its best to
-install the dependencies first (NumPy, SciPy, matplotlib, Pandas). The SciPy
-Stack instructions are helpful for this: http://www.scipy.org/stackspec.html.
+install the dependencies first (NumPy, SciPy, matplotlib, Pandas, PyTables).
+The SciPy Stack instructions are helpful for this:
+http://www.scipy.org/stackspec.html.
 
 We recommend installing Anaconda_ for users in our lab to get all of the
 dependencies.
