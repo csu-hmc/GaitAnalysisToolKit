@@ -655,6 +655,11 @@ class DFlowData(object):
 
         return emg_column_labels, accel_column_labels
 
+    def _remove_outlier_markers(self, data_frame):
+        """Simple statistical test to identify markers that are obviously
+        incorrect measurements."""
+        pass
+
     def _identify_missing_markers(self, data_frame):
         """Returns the data frame in which all marker columns have had
         constant marker values replaced with NaN.
