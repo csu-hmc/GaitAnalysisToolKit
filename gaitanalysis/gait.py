@@ -260,10 +260,18 @@ class WalkingData(object):
 
         return self.raw_data
 
-    def tpose(self):
+    def tpose(self, data_frame):
         # TODO: Implement this
         # get weight : mean(F1Y + F2Y) => kgs
         # get specific accelerometer orientation; saggital and frontal plane
+
+        # x
+        -np.arcsin()
+        # y
+        np.arcsin() + np.pi
+        # z
+        np.arcsin() + np.pi
+
         return
 
     def grf_landmarks(self, right_vertical_signal_col_name,
@@ -276,10 +284,10 @@ class WalkingData(object):
 
         Parameters
         ==========
-        right_vertical_signal_column_name : string
+        right_vertical_signal_col_name : string
             The name of the column in the raw data frame which corresponds
             to the right foot vertical ground reaction force.
-        left_vertical_signal_column_name : string
+        left_vertical_signal_col_name : string
             The name of the column in the raw data frame which corresponds
             to the left foot vertical ground reaction force.
         method: string {force|accel}
@@ -349,12 +357,30 @@ class WalkingData(object):
         self.offs['left'] = left_offs
 
         if do_plot:
-            self.plot_landmarks(time, **kwargs)
+            try:
+                right_col_names = kwargs.pop('right_col_names')
+            except KeyError:
+                right_col_names = [right_vertical_signal_col_name]
+
+            try:
+                left_col_names = kwargs.pop('left_col_names')
+            except KeyError:
+                left_col_names = [left_vertical_signal_col_name]
+            try:
+                num_steps_to_plot = kwargs.pop('num_steps_to_plot')
+            except KeyError:
+                num_steps_to_plot = None
+
+            self.plot_landmarks(col_names=right_col_names, side='right',
+                                num_steps_to_plot=num_steps_to_plot)
+            self.plot_landmarks(col_names=left_col_names, side='left',
+                                num_steps_to_plot=num_steps_to_plot)
 
         return right_strikes, left_strikes, right_offs, left_offs
 
 
-    def plot_landmarks(self, col_names, side, event='both', **kwargs):
+    def plot_landmarks(self, col_names, side, event='both',
+                       num_steps_to_plot=None):
         """
         Creates a plot of the desired signal overlaid
         Parameters
@@ -377,11 +403,22 @@ class WalkingData(object):
         if side != 'right' and side != 'left':
             raise ValueError('Please indicate \'right\' or \'left\' side.')
 
+        foot_strikes = {'heelstrikes': self.strikes[side],
+                        'toeoffs': self.offs[side],
+                        'both': self.offs[side]}
+        if num_steps_to_plot is not None:
+            try:
+                xlimit = foot_strikes[event][num_steps_to_plot]   
+            except IndexError:
+                raise IndexError('{} is not a valid number of steps to plot'.format(num_steps_to_plot))
+        else:
+            xlimit = foot_strikes[event][-1]
+
         time = self.raw_data.index.values.astype(float)
 
         fig, axes = plt.subplots(len(col_names), sharex=True)
 
-        fig.suptitle('Gait Events')
+        fig.suptitle('{} Gait Events'.format(str.capitalize(side)))
 
         ones = np.array([1, 1])
 
@@ -403,6 +440,7 @@ class WalkingData(object):
                     ax.plot(off*ones, ax.get_ylim(), 'b', label=side + ' toeoffs')
 
             ax.set_ylabel(col_name)
+            ax.set_xlim((ax.get_xlim()[0], xlimit))
 
         # draw only on the last axes
         ax.set_xlabel('Time [s]')
