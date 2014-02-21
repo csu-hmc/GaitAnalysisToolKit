@@ -291,8 +291,12 @@ class DFlowData(object):
     marker_coordinate_suffixes = ['.Pos' + _c for _c in ['X', 'Y', 'Z']]
     marker_coordinate_regex = '.*\.Pos[XYZ]$'
 
-    hbm_column_regexes = ['^[LR]_.*', '.*\.Mom$', '.*\.Ang$', '.*\.Pow$',
+    # In the motek output file there is a space preceding only these two
+    # column names: ' L_Psoas' ' R_Psoas'     
+
+    hbm_column_regexes = ['^\s?[LR]_.*', '.*\.Mom$', '.*\.Ang$', '.*\.Pow$',
                           '.*\.COM.[XYZ]$']
+    analog_channel_regex = '^Channel[0-9]+\.Anlg$'
 
     force_plate_names = ['FP1', 'FP2']  # FP1 : left, FP2 : right
     force_plate_suffix = [_suffix_beg + _end for _end in ['X', 'Y', 'Z'] for
@@ -378,6 +382,10 @@ class DFlowData(object):
              self.non_hbm_column_indices) = \
                 self._hbm_column_labels(self.mocap_column_labels)
 
+            (self.analog_column_labels, self.analog_column_indices,
+                self.emg_column_labels, self.accel_column_labels) = \
+                self._analog_column_labels(self.mocap_column_labels)
+
     def _parse_meta_data_file(self):
         """Returns a dictionary containing the meta data stored in the
         optional meta data file."""
@@ -449,19 +457,21 @@ class DFlowData(object):
         and the accelerometer signals as time series with respect to the
         D-Flow time stamp."""
 
+        compensation_data = pandas.read_csv(self.compensation_tsv_path, delimiter='\t')
+        compensation_data = self._relabel_analog_columns(compensation_data)
+
         force_labels = \
             self._force_column_labels(without_center_of_pressure=True)
-        accel_labels = self._delsys_column_labels()[1]
+        accel_labels = self.accel_column_labels
         necessary_columns = ['TimeStamp'] + force_labels + accel_labels
 
-        all_columns = self._header_labels(self.compensation_tsv_path)
-        indices = []
-        for i, label in enumerate(all_columns):
-            if label in necessary_columns:
-                indices.append(i)
+        #all_columns = self._header_labels(self.compensation_tsv_path)
+        #indices = []
+        #for i, label in enumerate(all_columns):
+        #    if label in necessary_columns:
+        #        indices.append(i)
 
-        return pandas.read_csv(self.compensation_tsv_path, delimiter='\t',
-                               usecols=indices)
+        return compensation_data[necessary_columns]
 
     def _clean_compensation_data(self, data_frame):
         """Returns a the data frame with Delsys signals shifted and all
@@ -497,8 +507,7 @@ class DFlowData(object):
         measured."""
 
         delsys_time = data_frame[time_col] - self.delsys_time_delay
-        emg_labels, accel_labels = self._delsys_column_labels()
-        delsys_labels = emg_labels + accel_labels
+        delsys_labels = self.emg_column_labels + self.accel_column_labels
 
         for delsys_label in set(data_frame.columns).intersection(delsys_labels):
             interpolate = InterpolatedUnivariateSpline(delsys_time,
@@ -606,6 +615,73 @@ class DFlowData(object):
 
         return hbm_labels, hbm_indices, non_hbm_indices
 
+    def _analog_column_labels(self, labels):
+        """Returns a list of analog channel column labels and the indices of
+        the labels.
+
+        Parameters
+        ----------
+        labels : list of strings
+            This should be a superset of column labels, some of which may be
+            human body model results.
+
+        Returns
+        -------
+        analog_labels : list of strings
+            The labels of analog channels in the order found
+            in `labels`.
+        analog_indices : list of integers
+            The indices of the analog columns with respect to the indices of
+            `labels`.
+        emg_column_labels : list of strings
+            The labels of emg channels in the order found in `labels`
+        accel_column_labels : list of strings
+            The labels of accelerometer channels in the order found
+            in `labels`
+        """
+
+        def delsys_column_labels():
+            """Returns the default EMG and Accelerometer column labels in which
+            the Delsys system is connected."""
+    
+            number_delsys_sensors = 16
+    
+            emg_analog_numbers = [4 * n + 13 for n in
+                                  range(number_delsys_sensors)]
+    
+            accel_analog_numbers = [4 * n + m + 14 for n in
+                                    range(number_delsys_sensors) for m in
+                                    range(3)]
+    
+            emg_column_labels = ['Channel{}.Anlg'.format(4 * n + 13) for n in
+                                 range(number_delsys_sensors)]
+    
+            accel_column_labels = ['Channel{}.Anlg'.format(4 * n + m + 14) for n
+                                   in range(number_delsys_sensors) for m in
+                                   range(3)]
+    
+            return emg_column_labels, accel_column_labels
+
+        # All analog channels
+        analog_labels = []
+        analog_indices = []
+
+        reg_exp = re.compile(self.analog_channel_regex)
+
+        for i, label in enumerate(labels):
+            if reg_exp.match(label):
+                analog_labels.append(label)
+                analog_indices.append(i)
+
+        # EMG and Accelerometer channels
+        emg_column_labels, accel_column_labels = delsys_column_labels()
+
+        # Remove channels from the default list that are not in `analog_labels`
+        emg_column_labels = [label for label in emg_column_labels if label in analog_labels]
+        accel_column_labels = [label for label in accel_column_labels if label in analog_labels]
+
+        return analog_labels, analog_indices, emg_column_labels, accel_column_labels
+
     def _force_column_labels(self, without_center_of_pressure=False):
         """Returns a list of force column labels.
 
@@ -630,30 +706,63 @@ class DFlowData(object):
         return [side + suffix for side in self.force_plate_names for suffix
                 in self.force_plate_suffix if not f(suffix)]
 
-    def _delsys_column_labels(self):
-        """Returns the default EMG and Accelerometer column labels in which
-        the Delsys system is connected."""
+    def _relabel_analog_columns(self, data_frame):
+        """
+        Relabels analog channels in data frame to names defined in the
+        yml meta file. Channels not specified in the meta file are keep
+        their original names.
+        self.analog_column_labels, self.emg_column_labels, and 
+        self.accel_column_labels are updated with the new names.
 
-        # TODO : The accelerometer names should come from the meta data and
-        # not be hard coded here.
+        Parameters
+        ==========
+        data_frame : pandas.DataFrame, size(n, m)
 
-        number_delsys_sensors = 16
+        Returns
+        =======
+        data_frame : pandas.DataFrame, size(n, m
+            The same data frame with columns relabeled.
 
-        emg_analog_numbers = [4 * n + 13 for n in
-                              range(number_delsys_sensors)]
+        """
 
-        accel_analog_numbers = [4 * n + m + 14 for n in
-                                range(number_delsys_sensors) for m in
-                                range(3)]
+        # default channel names
+        force_channels = {'Channel1.Anlg': 'F1Y1',
+                'Channel2.Anlg': 'F1Y2',
+                'Channel3.Anlg': 'F1Y3',
+                'Channel4.Anlg': 'F1X1',
+                'Channel5.Anlg': 'F1X2',
+                'Channel6.Anlg': 'F1Z1',
+                'Channel7.Anlg': 'F2Y1',
+                'Channel8.Anlg': 'F2Y2',
+                'Channel9.Anlg': 'F2Y3',
+                'Channel10.Anlg': 'F2X1',
+                'Channel11.Anlg': 'F2X2',
+                'Channel12.Anlg': 'F2Z1'}
 
-        emg_column_labels = ['Channel{}.Anlg'.format(4 * n + 13) for n in
-                             range(number_delsys_sensors)]
+        # default name format: SensorXX_AccX
+        num_force_plate_channels = 12
+        signals = ['EMG', 'AccX','AccY','AccZ']
+        num_sensors = 16
+        sensor_channels = {'Channel' + str(4*i+(j+1)+num_force_plate_channels) +
+            '.Anlg': 'Sensor' + str(i+1).zfill(2) + '_' +
+            signal for i in range(num_sensors) for j,signal in enumerate(signals)}
+        
+        channel_names = dict(force_channels.items() + sensor_channels.items())
+        
+        # update labels from meta file
+        try:
+            channel_names.update(self.meta['trial']['analog-channel-names'])
+        except:
+            pass
 
-        accel_column_labels = ['Channel{}.Anlg'.format(4 * n + m + 14) for n
-                               in range(number_delsys_sensors) for m in
-                               range(3)]
+        data_frame.rename(columns=channel_names, inplace=True)
 
-        return emg_column_labels, accel_column_labels
+        for column_label_list in (self.analog_column_labels, self.emg_column_labels, self.accel_column_labels):
+            for i,label in enumerate(column_label_list):
+                if label in channel_names:
+                    column_label_list[i] = channel_names[label]
+        
+        return data_frame
 
     def _identify_missing_markers(self, data_frame):
         """Returns the data frame in which all marker columns have had
@@ -742,16 +851,19 @@ class DFlowData(object):
         """
 
         if ignore_hbm is True:
-            return pandas.read_csv(self.mocap_tsv_path, delimiter='\t',
+            data_frame = pandas.read_csv(self.mocap_tsv_path, delimiter='\t',
                                    usecols=self.non_hbm_column_indices)
         else:
             if id_hbm_na is True:
                 hbm_na_values = {k: self.hbm_na for k in
                                  self.hbm_column_labels}
-                return pandas.read_csv(self.mocap_tsv_path, delimiter='\t',
+                data_frame = pandas.read_csv(self.mocap_tsv_path, delimiter='\t',
                                        na_values=hbm_na_values)
             else:
-                return pandas.read_csv(self.mocap_tsv_path, delimiter='\t')
+                data_frame =  pandas.read_csv(self.mocap_tsv_path, delimiter='\t')
+
+        return data_frame
+        
 
     def missing_value_statistics(self, data_frame):
         """Returns a report of missing values in the data frame."""
@@ -890,14 +1002,14 @@ class DFlowData(object):
                   'FP2.ForZ', 'FP2.MomX', 'FP2.MomY', 'FP2.MomZ']
 
         # First four accelerometers.
-        accelerometers = self._delsys_column_labels()[1][:4 * 3]
-
+        accelerometers = self.accel_column_labels[:4 * 3]
+        
         compensated_forces = \
-            octave.inertial_compensation(calibration_data_frame[forces].values,
-                                         calibration_data_frame[accelerometers].values,
-                                         data_frame[self.treadmill_markers].values,
-                                         data_frame[forces].values,
-                                         data_frame[accelerometers].values)
+                        octave.inertial_compensation(calibration_data_frame[forces].values,
+                        calibration_data_frame[accelerometers].values,
+                        data_frame[self.treadmill_markers].values,
+                        data_frame[forces].values,
+                        data_frame[accelerometers].values)
 
         data_frame[forces] = compensated_forces
 
@@ -957,6 +1069,111 @@ class DFlowData(object):
         else:
             return mocap_data_frame
 
+    def _orient_accelerometers(self, data_frame):
+        """
+        Parameters
+        ==========
+        mocap_data_frame : pandas.DataFrame
+            DataFrame containing accelerometer signals to be placed in treadmill
+            reference frame.
+
+        Returns
+        =======
+        mocap_data_frame : pandas.DataFrame
+            DataFrame containing accelerometer signals in treadmill
+            reference frame.
+        """
+
+        def orient_accelerometer(orientation, x_prime, y_prime, z_prime):
+            if np.shape(orientation) != (3, 3):
+                raise ValueError("Bad orientation matrix.")
+            if ((abs(orientation) != 1) * (orientation != 0)).any():
+                raise ValueError("Bad orientation matrix.")
+            for row in range(3):
+                if abs(orientation[row,:].sum()) != 1:
+                    raise ValueError("Bad orientation matrix.")
+    
+            if not (np.shape(x_prime) == np.shape(y_prime) == np.shape(z_prime)):
+                raise ValueError("X, Y, Z vectors not the same length.")
+    
+            x_inertial = np.zeros(np.shape(x_prime))
+            y_inertial = np.zeros(np.shape(y_prime))
+            z_inertial = np.zeros(np.shape(z_prime))
+            
+            for row, world in enumerate([x_inertial, y_inertial, z_inertial]):
+                for col, local in enumerate([x_prime, y_prime, z_prime]):
+                    world += orientation[row,col] * local
+    
+            return x_inertial, y_inertial, z_inertial
+
+        for sensor, rot_matrix in self.meta['trial']['sensor-orientation'].iteritems():
+            data_frame[sensor + '_AccX'], data_frame[sensor + '_AccY'], \
+                data_frame[sensor + '_AccZ'] = orient_accelerometer(
+                        np.array(rot_matrix), data_frame[sensor + '_AccX'],
+                        data_frame[sensor + '_AccY'], data_frame[sensor + '_AccZ'])
+
+        return data_frame
+
+    def _calibrate_accel_data(self, data_frame, y1=0, y2=-9.81):
+        """Two-point calibration of accelerometer signals.
+        Converts from voltage to meters/second^2
+
+        Parameters
+        ==========
+        data_frame : pandas.DataFrame
+            Accelerometer data  in volts to be calibrated
+        y1 : float, optional
+        y2 : float, optional
+
+        Returns
+        =======
+        data_frame : pandas.DataFrame
+            Calibrated accelerometer data in m/s^2
+
+        Notes
+        =====
+        A calibration file must be specified in the meta file and its
+        structure is as follows:
+        There must be a column for each accelerometer signal to be calibrated,
+        so three columns per sensor. There must be three rows of accelerometer
+        readings. The first row is the reading when the sensors are placed with
+        z-axis pointing straight up. The second row is the reading when the
+        x-axis is pointing straight up. The third row is the reading when the
+        y-axis is pointing straight up.
+        (xyz)
+        -----
+        (001)
+        (100)
+        (010)
+        """
+
+        accel_channels = self.accel_column_labels       
+
+        cal = pandas.read_csv(self.meta['trial']['files']['accel-calibration'])
+
+        cal = cal.drop('Time', 1)
+
+        if len(accel_channels) != cal.shape[1]:
+            raise ValueError("Calibration file doesn't match mocap data.")
+
+        def twopointcalibration(x, x1, x2):
+            m = (y2-y1)/(x2-x1)
+            return m*(x-x1)+y1
+
+        for i in range(0, len(accel_channels),3):
+            x1 = cal.icol(i)[0]; x2 = cal.icol(i)[1]
+            data_frame[accel_channels[i]] = twopointcalibration(data_frame[accel_channels[i]], x1, x2)
+
+        for i in range(1, len(accel_channels),3):
+            x1 = cal.icol(i)[0]; x2 = cal.icol(i)[2]
+            data_frame[accel_channels[i]] = twopointcalibration(data_frame[accel_channels[i]], x1, x2)
+
+        for i in range(2, len(accel_channels),3):
+            x1 = cal.icol(i)[1]; x2 = cal.icol(i)[0]
+            data_frame[accel_channels[i]] = twopointcalibration(data_frame[accel_channels[i]], x1, x2)
+
+        return data_frame
+
     def clean_data(self, interpolate_markers=False):
         """Returns the processed, "cleaned", data.
 
@@ -971,15 +1188,17 @@ class DFlowData(object):
         -----
 
         1. Loads the mocap and record modules into Pandas ``DataFrame``\s.
-        2. Shifts the Delsys signals in the mocap module data to accomodate
+        2. Relabels of columns of Pandas ``DataFrame`` to more meaningful
+           names.
+        3. Shifts the Delsys signals in the mocap module data to accomodate
            for the wireless time delay, ~96ms.
-        3. Identifies the missing values in the mocap marker data and
+        4. Identifies the missing values in the mocap marker data and
            replaces with NaN.
-        4. Returns statistics on how many missing values in the marker time
+        5. Returns statistics on how many missing values in the marker time
            series are present, the max consecutive missing values, etc.
-        5. Optionally, interpolates the missing marker values and replaces them with
+        6. Optionally, interpolates the missing marker values and replaces them with
            interpolated estimates.
-        6. Compensates the force measurments for the motion of the treadmill
+        7. Compensates the force measurments for the motion of the treadmill
            base, if needed.
 
             1. Pulls the compensation file path from meta data.
@@ -992,20 +1211,21 @@ class DFlowData(object):
             7. Replace the force/moment measurements in the mocap data file with the
                 compensated forces/moments.
 
-        7. Optionally, low pass filter all human related data. (If there
+        8. Optionally, low pass filter all human related data. (If there
            wasn't a stationary platform, then these should always be
            filtered with the same low pass filter as the compensation
            algorithm used.)
-        8. Merges the data from the mocap module and record module into one
+        9. Merges the data from the mocap module and record module into one
            ``DataFrame``.
 
         """
-
         if self.mocap_tsv_path is not None:
 
             raw_mocap_data_frame = self._load_mocap_data(ignore_hbm=True)
 
-            shifted_mocap_data_frame = self._shift_delsys_signals(raw_mocap_data_frame)
+            relabeled_mocap_data_frame = self._relabel_analog_columns(raw_mocap_data_frame)
+
+            shifted_mocap_data_frame = self._shift_delsys_signals(relabeled_mocap_data_frame)
 
             identified_mocap_data_frame = \
                 self._identify_missing_markers(shifted_mocap_data_frame)
@@ -1028,6 +1248,7 @@ class DFlowData(object):
             self.raw_record_data_frame = self._load_record_data()
 
         self.data = self._merge_mocap_record()
+
 
     def _merge_mocap_record(self):
         """Returns a data frame that is a merger of the mocap and record

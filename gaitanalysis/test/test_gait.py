@@ -69,7 +69,9 @@ class TestWalkingData():
     def setup(self):
 
         time = time_vector(1000, 100)
-
+        cortex_time = time
+        dflow_time = time
+        
         omega = 2 * np.pi
 
         right_grf = 1000 * (0.75 + np.sin(omega * time))
@@ -87,7 +89,9 @@ class TestWalkingData():
             pandas.DataFrame({'Right Vertical GRF': right_grf,
                               'Left Vertical GRF': left_grf,
                               'Right Knee Angle': right_knee_angle,
-                              'Right Knee Moment': right_knee_moment},
+                              'Right Knee Moment': right_knee_moment,
+                              'Cortex Time': cortex_time,
+                              'D-Flow Time': dflow_time},
                              index=time)
 
         self.threshold = 10.0
@@ -144,23 +148,33 @@ class TestWalkingData():
             assert col in walking_data.raw_data.columns
 
     def test_grf_landmarks(self, plot=False):
-
+        # Test for force plate version
         walking_data = WalkingData(self.data_frame)
+
+        min_idx = len(self.data_frame) / 3
+        max_idx = 2*len(self.data_frame) / 3
+
+        min_time = self.data_frame.index.astype(float)[min_idx]
+        max_time = self.data_frame.index.astype(float)[max_idx]
 
         right_strikes, left_strikes, right_offs, left_offs = \
             walking_data.grf_landmarks('Right Vertical GRF',
                                        'Left Vertical GRF',
+                                       min_time=min_time,
+                                       max_time=max_time,
                                        threshold=self.threshold,
                                        do_plot=plot)
 
-        right_zero = self.data_frame['Right Vertical GRF'] < self.threshold
+        right_zero = self.data_frame['Right Vertical GRF'][min_idx:max_idx] \
+                        < self.threshold
         instances = right_zero.apply(lambda x: 1 if x else 0).diff()
         expected_right_offs = \
             instances[instances == 1].index.values.astype(float)
         expected_right_strikes = \
             instances[instances == -1].index.values.astype(float)
 
-        left_zero = self.data_frame['Left Vertical GRF'] < self.threshold
+        left_zero = self.data_frame['Left Vertical GRF'][min_idx:max_idx] \
+                        < self.threshold
         instances = left_zero.apply(lambda x: 1 if x else 0).diff()
         expected_left_offs = \
             instances[instances == 1].index.values.astype(float)
@@ -172,6 +186,22 @@ class TestWalkingData():
 
         testing.assert_allclose(expected_left_offs, left_offs)
         testing.assert_allclose(expected_left_strikes, left_strikes)
+
+        # TODO : Add test for accelerometer based gait landmarks
+
+    def test_plot_landmarks(self):
+        walking_data = WalkingData(self.data_frame)
+        walking_data.grf_landmarks('Right Vertical GRF',
+                                   'Left Vertical GRF',
+                                   threshold=self.threshold)
+        side = 'right'
+        col_names = ['Right Vertical GRF','Right Knee Angle','Right Knee Moment']
+        time = walking_data.raw_data.index.values.astype(float)
+
+        assert_raises(ValueError, walking_data.plot_landmarks, [], side)
+        assert_raises(ValueError, walking_data.plot_landmarks, col_names, '')
+        # TODO: Test to see if user wants heelstrikes or toeoffs
+        # assert_raises(ValueError, walking_data.plot_landmarks, col_names, side, event='')
 
     def test_split_at(self, plot=False):
 
