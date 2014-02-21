@@ -703,9 +703,7 @@ class WalkingData(object):
 
 
 def gait_landmarks_from_grf(time, right_grf, left_grf,
-                            threshold=1e-5, do_plot=False, min_time=None,
-                            max_time=None, num_steps_to_plot=None,
-                            filter_frequency=None, **kwargs):
+                            threshold=1e-5, filter_frequency=None, **kwargs):
     """
     Obtain gait landmarks (right and left foot strike & toe-off) from ground
     reaction force (GRF) time series data.
