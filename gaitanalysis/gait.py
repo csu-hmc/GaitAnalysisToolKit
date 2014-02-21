@@ -270,18 +270,22 @@ class WalkingData(object):
         return self.raw_data
 
     def tpose(self, data_frame):
-        # TODO: Implement this
-        # get weight : mean(F1Y + F2Y) => kgs
-        # get specific accelerometer orientation; saggital and frontal plane
+        """
+        Computes the mass of the subject.
+        Computes to orientation of accelerometers on a subject during quiet
+        standing relative to treadmill Y-axis
+        """
+        bodymass = np.mean(data_frame['FP1.ForY'] + data_frame['FP2.ForY']) / 9.81
+        sensor_angle = {}
+        for column in data_frame.columns:
+            if '_AccX' in column:
+                sensor_angle[column] = np.arcsin(-data_frame[column].mean()/9.81)
+            if '_AccY' in column:
+                sensor_angle[column] = np.arccos(-data_frame[column].mean()/9.81)
+            if '_AccZ' in column:
+                sensor_angle[column] = np.arcsin(-data_frame[column].mean()/9.81)
 
-        # x
-        -np.arcsin()
-        # y
-        np.arcsin() + np.pi
-        # z
-        np.arcsin() + np.pi
-
-        return
+        return bodymass, sensor_angle
 
     def grf_landmarks(self, right_vertical_signal_col_name,
                       left_vertical_signal_col_name, method='force',

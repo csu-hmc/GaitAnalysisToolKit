@@ -739,6 +739,7 @@ class DFlowData(object):
                 'Channel11.Anlg': 'F2X2',
                 'Channel12.Anlg': 'F2Z1'}
 
+        # default name format: SensorXX_AccX
         num_force_plate_channels = 12
         signals = ['EMG', 'AccX','AccY','AccZ']
         num_sensors = 16
@@ -1085,15 +1086,15 @@ class DFlowData(object):
 
         def orient_accelerometer(orientation, x_prime, y_prime, z_prime):
             if np.shape(orientation) != (3, 3):
-                raise ValueError("")
+                raise ValueError("Bad orientation matrix.")
             if ((abs(orientation) != 1) * (orientation != 0)).any():
-                raise ValueError("")
+                raise ValueError("Bad orientation matrix.")
             for row in range(3):
                 if abs(orientation[row,:].sum()) != 1:
-                    raise ValueError("")
+                    raise ValueError("Bad orientation matrix.")
     
             if not (np.shape(x_prime) == np.shape(y_prime) == np.shape(z_prime)):
-                raise ValueError("")
+                raise ValueError("X, Y, Z vectors not the same length.")
     
             x_inertial = np.zeros(np.shape(x_prime))
             y_inertial = np.zeros(np.shape(y_prime))
@@ -1113,7 +1114,7 @@ class DFlowData(object):
 
         return data_frame
 
-    def _calibrate_accel_data(self, data_frame, y1=0, y2=9.81):
+    def _calibrate_accel_data(self, data_frame, y1=0, y2=-9.81):
         """Two-point calibration of accelerometer signals.
         Converts from voltage to meters/second^2
 
@@ -1150,7 +1151,7 @@ class DFlowData(object):
 
         cal = pandas.read_csv(self.meta['trial']['files']['accel-calibration'])
 
-        cal.drop('Time', 1, inplace=True)
+        cal = cal.drop('Time', 1)
 
         if len(accel_channels) != cal.shape[1]:
             raise ValueError("Calibration file doesn't match mocap data.")
