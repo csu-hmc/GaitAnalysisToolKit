@@ -203,10 +203,12 @@ class WalkingData(object):
         the inverse dynamics. You should pass in unfiltered data.
 
         """
-        mfile = os.path.abspath(os.path.join(os.path.split(__file__)[0],
-                                             '..', 'Octave-Matlab-Codes',
-                                             '2D-Inverse-Dynamics'))
-        octave.addpath(mfile)
+        this_files_dir = os.path.split(__file__)[0]
+        m_file_directory = os.path.abspath(os.path.join(this_files_dir,
+                                                        '..',
+                                                        'Octave-Matlab-Codes',
+                                                        '2D-Inverse-Dynamics'))
+        octave.addpath(m_file_directory)
 
         options = {'freq': low_pass_cutoff}
 
@@ -218,7 +220,7 @@ class WalkingData(object):
 
         side_labels = ['Left', 'Right']
         joint_labels = ['Hip', 'Knee', 'Ankle']
-        sign_labels = ['Flexion', 'Flexion', 'PlantarFlexion', ('X', 'Y')]
+        sign_labels = ['Flexion', 'Flexion', 'PlantarFlexion']
         dynamic_labels = ['Angle', 'Rate', 'Moment', 'Force']
         scale_factors = [1.0, 1.0, body_mass, body_mass]
 
@@ -238,12 +240,11 @@ class WalkingData(object):
 
             dynamics = angles, velocities, moments, forces
 
-            fours = zip(dynamics, sign_labels, dynamic_labels,
-                        scale_factors)
+            fours = zip(dynamics, dynamic_labels, scale_factors)
 
-            for array, sign_label, dynamic_label, scale_factor in fours:
+            for array, dynamic_label, scale_factor in fours:
 
-                if isinstance(sign_label, tuple):
+                if dynamic_label == 'Force':
 
                     # array is N x 6, (Fx, Fy) for each joint
 
@@ -251,7 +252,7 @@ class WalkingData(object):
 
                     for joint_label, vectors in zip(joint_labels, a):
 
-                        for slab, vector in zip(sign_label, vectors.T):
+                        for slab, vector in zip(('X', 'Y'), vectors.T):
 
                             label = '.'.join([side_label, joint_label, slab,
                                               dynamic_label])
@@ -260,7 +261,9 @@ class WalkingData(object):
 
                 else:
 
-                    for joint_label, vector in zip(joint_labels, array.T):
+                    for joint_label, sign_label, vector in zip(joint_labels,
+                                                               sign_labels,
+                                                               array.T):
 
                         label = '.'.join([side_label, joint_label,
                                           sign_label, dynamic_label])
@@ -421,7 +424,7 @@ class WalkingData(object):
                         'both': self.offs[side]}
         if num_steps_to_plot is not None:
             try:
-                xlimit = foot_strikes[event][num_steps_to_plot]   
+                xlimit = foot_strikes[event][num_steps_to_plot]
             except IndexError:
                 raise IndexError('{} is not a valid number of steps to plot'.format(num_steps_to_plot))
         else:
