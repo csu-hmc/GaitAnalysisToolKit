@@ -222,6 +222,8 @@ class SimpleControlSolver(object):
                     results.loc[row_label, names] = gain_matrices[j, :, k] * \
                         sensor_error.iloc[j, k]
 
+            results['Original Time'] = df['Original Time']
+
             panel[i] = results
 
         return pandas.Panel(panel)
@@ -730,7 +732,7 @@ class SimpleControlSolver(object):
         control_vectors_variance : ndarray, shape(n, q)
             The variance of the found commanded controls (covariance is
             neglected).
-        estimated_controls :
+        estimated_controls : pandas.Panel
 
         """
         self.gain_omission_matrix = gain_omission_matrix

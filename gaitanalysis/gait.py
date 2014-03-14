@@ -421,7 +421,7 @@ class WalkingData(object):
                         'both': self.offs[side]}
         if num_steps_to_plot is not None:
             try:
-                xlimit = foot_strikes[event][num_steps_to_plot]   
+                xlimit = foot_strikes[event][num_steps_to_plot]
             except IndexError:
                 raise IndexError('{} is not a valid number of steps to plot'.format(num_steps_to_plot))
         else:
@@ -696,7 +696,7 @@ class WalkingData(object):
                         data['left'] = store[item + '_left'].values
                     else:
                         data = store[item]
-                except AttributeError:
+                except KeyError:
                     pass
                 else:
                     setattr(self, item, data)
