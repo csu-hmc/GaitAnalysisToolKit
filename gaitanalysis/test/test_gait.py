@@ -71,7 +71,7 @@ class TestWalkingData():
         time = time_vector(1000, 100)
         cortex_time = time
         dflow_time = time
-        
+
         omega = 2 * np.pi
 
         right_grf = 1000 * (0.75 + np.sin(omega * time))
@@ -137,12 +137,37 @@ class TestWalkingData():
         data_frame = walking_data.inverse_dynamics_2d(lmark, rmark, lforce,
                                                       rforce, 72.0, 6.0)
 
-        # Some of the new columns that will be created.
+        # The new columns that should be created.
         new_columns = ['Left.Hip.Flexion.Angle',
-                       'Right.Knee.Flexion.Rate',
+                       'Left.Hip.Flexion.Rate',
+                       'Left.Hip.Flexion.Moment',
+                       'Left.Hip.X.Force',
+                       'Left.Hip.Y.Force',
+                       'Left.Knee.Flexion.Angle',
+                       'Left.Knee.Flexion.Rate',
+                       'Left.Knee.Flexion.Moment',
+                       'Left.Knee.X.Force',
+                       'Left.Knee.Y.Force',
+                       'Left.Ankle.PlantarFlexion.Angle',
+                       'Left.Ankle.PlantarFlexion.Rate',
                        'Left.Ankle.PlantarFlexion.Moment',
+                       'Left.Ankle.X.Force',
+                       'Left.Ankle.Y.Force',
+                       'Right.Hip.Flexion.Angle',
+                       'Right.Hip.Flexion.Rate',
+                       'Right.Hip.Flexion.Moment',
                        'Right.Hip.X.Force',
-                       'Left.Knee.Y.Force']
+                       'Right.Hip.Y.Force',
+                       'Right.Knee.Flexion.Angle',
+                       'Right.Knee.Flexion.Rate',
+                       'Right.Knee.Flexion.Moment',
+                       'Right.Knee.X.Force',
+                       'Right.Knee.Y.Force',
+                       'Right.Ankle.PlantarFlexion.Angle',
+                       'Right.Ankle.PlantarFlexion.Rate',
+                       'Right.Ankle.PlantarFlexion.Moment',
+                       'Right.Ankle.X.Force',
+                       'Right.Ankle.Y.Force']
 
         for col in new_columns:
             assert col in walking_data.raw_data.columns
