@@ -292,7 +292,7 @@ class DFlowData(object):
     marker_coordinate_regex = '.*\.Pos[XYZ]$'
 
     # In the motek output file there is a space preceding only these two
-    # column names: ' L_Psoas' ' R_Psoas'     
+    # column names: ' L_Psoas' ' R_Psoas'
 
     hbm_column_regexes = ['^\s?[LR]_.*', '.*\.Mom$', '.*\.Ang$', '.*\.Pow$',
                           '.*\.COM.[XYZ]$']
@@ -643,23 +643,23 @@ class DFlowData(object):
         def delsys_column_labels():
             """Returns the default EMG and Accelerometer column labels in which
             the Delsys system is connected."""
-    
+
             number_delsys_sensors = 16
-    
+
             emg_analog_numbers = [4 * n + 13 for n in
                                   range(number_delsys_sensors)]
-    
+
             accel_analog_numbers = [4 * n + m + 14 for n in
                                     range(number_delsys_sensors) for m in
                                     range(3)]
-    
+
             emg_column_labels = ['Channel{}.Anlg'.format(4 * n + 13) for n in
                                  range(number_delsys_sensors)]
-    
+
             accel_column_labels = ['Channel{}.Anlg'.format(4 * n + m + 14) for n
                                    in range(number_delsys_sensors) for m in
                                    range(3)]
-    
+
             return emg_column_labels, accel_column_labels
 
         # All analog channels
@@ -711,7 +711,7 @@ class DFlowData(object):
         Relabels analog channels in data frame to names defined in the
         yml meta file. Channels not specified in the meta file are keep
         their original names.
-        self.analog_column_labels, self.emg_column_labels, and 
+        self.analog_column_labels, self.emg_column_labels, and
         self.accel_column_labels are updated with the new names.
 
         Parameters
@@ -746,9 +746,9 @@ class DFlowData(object):
         sensor_channels = {'Channel' + str(4*i+(j+1)+num_force_plate_channels) +
             '.Anlg': 'Sensor' + str(i+1).zfill(2) + '_' +
             signal for i in range(num_sensors) for j,signal in enumerate(signals)}
-        
+
         channel_names = dict(force_channels.items() + sensor_channels.items())
-        
+
         # update labels from meta file
         try:
             channel_names.update(self.meta['trial']['analog-channel-names'])
@@ -761,7 +761,7 @@ class DFlowData(object):
             for i,label in enumerate(column_label_list):
                 if label in channel_names:
                     column_label_list[i] = channel_names[label]
-        
+
         return data_frame
 
     def _identify_missing_markers(self, data_frame):
@@ -863,7 +863,6 @@ class DFlowData(object):
                 data_frame =  pandas.read_csv(self.mocap_tsv_path, delimiter='\t')
 
         return data_frame
-        
 
     def missing_value_statistics(self, data_frame):
         """Returns a report of missing values in the data frame."""
@@ -879,16 +878,11 @@ class DFlowData(object):
         names in the meta data file. If there are no events in the record
         file, this will return nothing."""
 
-        f = open(self.record_tsv_path, 'r')
-        filecontents = f.readlines()
-        f.close()
-
-        end = filecontents[-6]
-        end_value = end.split()
-        end_value1 = end_value[0]
-        end_time = float(end_value1)
+        with open(self.record_tsv_path, 'r') as f:
+            filecontents = f.readlines()
 
         if 'EVENT' in ''.join(filecontents):
+
             event_time1 = []
             event_labels = []
             for i in range(len(filecontents)):
@@ -899,6 +893,13 @@ class DFlowData(object):
                     event_time1.append(float(event_data[0]))
         else:
             return
+
+        for line in reversed(filecontents):
+            if not line.startswith('#'):
+                last_line_before_event_comments = line
+                break
+
+        end_time = float(last_line_before_event_comments.split()[0])
 
         event_time1.append(end_time)
         self.events = {}
@@ -1003,7 +1004,7 @@ class DFlowData(object):
 
         # First four accelerometers.
         accelerometers = self.accel_column_labels[:4 * 3]
-        
+
         compensated_forces = \
                         octave.inertial_compensation(calibration_data_frame[forces].values,
                         calibration_data_frame[accelerometers].values,
@@ -1092,18 +1093,18 @@ class DFlowData(object):
             for row in range(3):
                 if abs(orientation[row,:].sum()) != 1:
                     raise ValueError("Bad orientation matrix.")
-    
+
             if not (np.shape(x_prime) == np.shape(y_prime) == np.shape(z_prime)):
                 raise ValueError("X, Y, Z vectors not the same length.")
-    
+
             x_inertial = np.zeros(np.shape(x_prime))
             y_inertial = np.zeros(np.shape(y_prime))
             z_inertial = np.zeros(np.shape(z_prime))
-            
+
             for row, world in enumerate([x_inertial, y_inertial, z_inertial]):
                 for col, local in enumerate([x_prime, y_prime, z_prime]):
                     world += orientation[row,col] * local
-    
+
             return x_inertial, y_inertial, z_inertial
 
         for sensor, rot_matrix in self.meta['trial']['sensor-orientation'].iteritems():
@@ -1147,7 +1148,7 @@ class DFlowData(object):
         (010)
         """
 
-        accel_channels = self.accel_column_labels       
+        accel_channels = self.accel_column_labels
 
         cal = pandas.read_csv(self.meta['trial']['files']['accel-calibration'])
 
