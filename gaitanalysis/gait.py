@@ -699,7 +699,7 @@ class WalkingData(object):
                         data['left'] = store[item + '_left'].values
                     else:
                         data = store[item]
-                except AttributeError:
+                except KeyError:
                     pass
                 else:
                     setattr(self, item, data)
