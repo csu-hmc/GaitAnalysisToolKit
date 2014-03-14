@@ -64,6 +64,7 @@ class TestSimpleControlSolver():
                                   self.sensors[1]: self.s[i, :, 1],
                                   self.controls[0]: self.mm[i, :, 0],
                                   self.controls[1]: self.mm[i, :, 1],
+                                  'Original Time': self.time,
                                   }, index=self.time)
 
         self.all_cycles = pandas.Panel(cycles)
