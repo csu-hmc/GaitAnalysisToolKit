@@ -5,7 +5,7 @@
 import os
 from time import strptime
 from distutils.version import LooseVersion
-from random import sample
+from random import sample, choice
 
 # external
 import numpy as np
@@ -307,6 +307,11 @@ class TestDFlowData():
     #with open(os.path.join(__file__, 'data', 'meta-sample-full.yml'), 'r') as f:
         #meta_data = yaml.load(f)
 
+    number_of_events = choice(range(2, 7))
+    possible_event_names = ['A', 'B', 'C', 'D', 'E', 'F']
+    possible_event_descriptions = ['Zeroing', 'Walking', 'Running',
+                                   'Sitting', 'Standing', 'Relaxing']
+
     meta_data = {'trial': {'id': 5,
                            'datetime': strptime('2013-10-03', "%Y-%m-%d"),
                            'notes': 'All about this trial.',
@@ -322,11 +327,8 @@ class TestDFlowData():
                                      'meta': path_to_meta_data_file,
                                      'compensation': path_to_compensation_data_file,
                                     },
-                           'events': {
-                                      'A': 'Zeroing',
-                                      'B': 'Walking',
-                                      'C': 'Relaxing',
-                                     },
+                           'events': dict(zip(possible_event_names[:number_of_events],
+                                              possible_event_descriptions[:number_of_events])),
                            'analog-channel-names':
                                {
                                     "Channel1.Anlg": "F1Y1",
@@ -500,6 +502,8 @@ class TestDFlowData():
         which records the Dflow system time. The period between each
         time sample is variable depending on DFlow's processing load.
         The sample rate can be as high as 300 hz. The file also records
+        events as hashed comments between lines. A count of all of the
+        events is listed at the end of the file.
 
         Note: This requires the sample mocap file to be already created.
         """
@@ -533,14 +537,14 @@ class TestDFlowData():
                                       index=False, cols=['Time',
                                                          'LeftBeltSpeed',
                                                          'RightBeltSpeed'])
+
         event_template = "#\n# EVENT {} - COUNT {}\n#\n"
 
         time = self.record_data_frame['Time']
 
-        self.three_event_times = sorted(sample(time, 3))
-
-        event_times = {k: v for k, v in zip(['A', 'B', 'C'],
-                                            self.three_event_times)}
+        self.n_event_times = sorted(sample(time, self.number_of_events))
+        event_letters = self.possible_event_names[:self.number_of_events]
+        self.event_times = dict(zip(event_letters, self.n_event_times))
 
         # This loops through the record file and inserts the events.
         new_lines = ''
@@ -553,12 +557,12 @@ class TestDFlowData():
 
                 time_string = line.strip().split('\t')[time_col_index]
 
-                for key, value in event_times.items():
+                for key, value in self.event_times.items():
                     if '{:1.6f}'.format(value) == time_string:
                         new_lines += event_template.format(key, '1')
 
         new_lines += "\n".join("# EVENT {} occured 1 time".format(letter)
-                               for letter in ['A', 'B', 'C'])
+                               for letter in event_letters)
 
         with open(self.path_to_record_data_file, 'w') as f:
             f.write(new_lines)
@@ -729,19 +733,19 @@ class TestDFlowData():
               dflow_data._analog_column_labels(all_labels)
 
         assert anal_lab == self.cortex_analog_labels + self.delsys_labels
-        
-        for label in emg_lab + accel_lab: 
+
+        for label in emg_lab + accel_lab:
             assert label in self.delsys_labels
 
     def test_relabel_analog_column(self):
 
         # Test if analog columns are relabeled to what is indicated in
         # meta file
-        dflow_data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file, 
+        dflow_data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
                                meta_yml_path=self.path_to_meta_data_file)
 
         relabeled_data = dflow_data._relabel_analog_columns(self.mocap_data_frame.copy())
-        
+
         relabeled_columns = relabeled_data.columns
         anal_lab = dflow_data.analog_column_labels
         emg_lab = dflow_data.emg_column_labels
@@ -764,7 +768,7 @@ class TestDFlowData():
         dflow_data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file)
 
         relabeled_data = dflow_data._relabel_analog_columns(self.mocap_data_frame.copy())
-        
+
         relabeled_columns = relabeled_data.columns
         anal_lab = dflow_data.analog_column_labels
         emg_lab = dflow_data.emg_column_labels
@@ -872,6 +876,15 @@ class TestDFlowData():
             assert abs(data.events[key][0] - start) < 1e-16
             assert abs(data.events[key][1] - end) < 1e-16
 
+        dflow_data = DFlowData(self.path_to_mocap_data_file,
+                               self.path_to_record_data_file)
+        dflow_data._extract_events_from_record_file()
+
+        event_descriptions = self.possible_event_names[:self.number_of_events]
+        event_times = dict(zip(event_descriptions, self.n_event_times))
+        for k, v in dflow_data.events.items():
+            testing.assert_allclose(v[0], event_times[k], rtol=1e-5, atol=1e-5)
+
     def test_load_record_data(self):
         dflow_data = DFlowData(record_tsv_path=self.path_to_record_data_file)
         raw_record_data = dflow_data._load_record_data()
@@ -899,7 +912,7 @@ class TestDFlowData():
 
     def test_calibrate_accel_data(self):
         data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file)
-        
+
         # TODO : Add test.
 
     def test_orient_accelerometers(self):
@@ -917,7 +930,7 @@ class TestDFlowData():
                 relabeled_data['Front_Right_AccX'])
         testing.assert_allclose(reoriented_data['Back_Right_AccZ'],
                 relabeled_data['Back_Right_AccX'])
-        
+
 
     def test_clean_data(self):
         data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
@@ -1056,10 +1069,10 @@ class TestDFlowData():
         zeroing_data_frame = dflow_data.extract_processed_data(event='Zeroing')
 
         start_i = np.argmin(np.abs(dflow_data.data['TimeStamp'] -
-                                   self.three_event_times[0]))
+                                   self.n_event_times[0]))
 
         stop_i = np.argmin(np.abs(dflow_data.data['TimeStamp'] -
-                                  self.three_event_times[1]))
+                                  self.n_event_times[1]))
 
         compare_data_frames(zeroing_data_frame,
                             dflow_data.data.iloc[start_i:stop_i, :])
@@ -1067,7 +1080,9 @@ class TestDFlowData():
         timestamp_index_data_frame = dflow_data.extract_processed_data(index_col='TimeStamp')
 
         # TODO : The time stamp is removed from dflow_data.data here, so the
-        # following command fails because there is no timestamp column.
+        # following command fails because there is no timestamp column. i.e.
+        # the class is mutable. This problematic if you want to extract more
+        # than one event.
 
         #timestamp_index_data_frame = \
             #dflow_data.extract_processed_data(event='Zeroing',
