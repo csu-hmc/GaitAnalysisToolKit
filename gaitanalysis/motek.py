@@ -1317,6 +1317,7 @@ class DFlowData(object):
                 data_frame = self.data.iloc[start_i:stop_i, :]
 
         if index_col is not None:
+            data_frame = data_frame.copy()
             data_frame.index = data_frame[index_col]
             del data_frame[index_col]
 
