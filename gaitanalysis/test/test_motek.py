@@ -1077,21 +1077,9 @@ class TestDFlowData():
         compare_data_frames(zeroing_data_frame,
                             dflow_data.data.iloc[start_i:stop_i, :])
 
+        # The next two statements test issue #57, i.e. extracting multiple
+        # copies of the processed data with index column rewrite.
         timestamp_index_data_frame = dflow_data.extract_processed_data(index_col='TimeStamp')
-
-        # TODO : The time stamp is removed from dflow_data.data here, so the
-        # following command fails because there is no timestamp column. i.e.
-        # the class is mutable. This problematic if you want to extract more
-        # than one event.
-
-        #timestamp_index_data_frame = \
-            #dflow_data.extract_processed_data(event='Zeroing',
-                                              #index_col='TimeStamp')
-
-        dflow_data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
-                               record_tsv_path=self.path_to_record_data_file,
-                               meta_yml_path=self.path_to_meta_data_file)
-        dflow_data.clean_data()
 
         timestamp_index_data_frame = \
             dflow_data.extract_processed_data(event='Zeroing',
