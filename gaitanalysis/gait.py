@@ -538,9 +538,10 @@ class WalkingData(object):
         section : string {both|stance|swing}
             Whether to split around the stance phase, swing phase, or both.
         num_samples : integer, optional
-            If provided the time series in each step will be interpolated at
-            values evenly spaced at num_sample in time across the step. If
-            none, the minimum number of samples per step will be used.
+            If provided, the time series in each gait cycle will be
+            interpolated at values evenly spaced at num_sample in time
+            across the step. If None, the maximum number of possible samples
+            per step will be used.
         belt_speed_column : string, optional
             The column name corresponding to the belt speed on the
             corresponding side.
@@ -548,6 +549,9 @@ class WalkingData(object):
         Returns
         =======
         steps : pandas.Panel
+            A panel where each item is a gait cycle. Each cycle has the same
+            number of time samples and the index is set to the  percent of
+            the gait cycle.
 
         """
 
@@ -578,12 +582,16 @@ class WalkingData(object):
         max_num_samples = min(samples)
         if num_samples is None:
             num_samples = max_num_samples
-        # TODO: This percent should always be computed with respect to heel
-        # strike to next heel strike, i.e.:
+        # TODO: The percent of the gait cycle should always be computed with
+        # respect to heel strike to next heel strike, i.e.:
         # stance: 0.0 to percent stance
-        # swing: percent stance to 1.0
-        # both: 0.0 to 1.0
-        percent_gait = np.linspace(0.0, 1.0, num=num_samples)
+        # swing: percent stance to 1.0 - 1.0 / n
+        # both: 0.0 to 1.0 - 1.0 / n
+        # but right now this only works correctly for section='both'. It
+        # currently generates the percent of the phase of the portion of the
+        # gait cycle.
+        percent_gait = np.linspace(0.0, 1.0 - 1.0 / num_samples,
+                                   num=num_samples)
 
         steps = {}
         step_data = {'Number of Samples': [],
@@ -601,28 +609,31 @@ class WalkingData(object):
             except IndexError:
                 pass
             else:
-                # make a new time index starting from zero for each step
-                original_time = data_frame.index.values.astype(float)
-                new_index = original_time - data_frame.index[0]
-                data_frame.index = new_index
-                # keep the original time around for future use
-                data_frame['Original Time'] = original_time
-                # create a time vector index which has a specific number
-                # of samples over the period of time
-                sub_sample_index = np.linspace(0.0, new_index[-1],
+                # create a time vector index which has the correct number of
+                # samples over the gait cycle
+                duration = data_frame.index[-1] - data_frame.index[0]
+                # note that this does not include the ending heelstrike
+                last_sample_time = (data_frame.index[0] +
+                                    duration * (1.0 - 1.0 / num_samples))
+                sub_sample_index = np.linspace(data_frame.index[0],
+                                               last_sample_time,
                                                num=num_samples)
                 interpolated_data_frame = interpolate(data_frame,
                                                       sub_sample_index)
+                # keep the interpolation of the original time around for
+                # future use
+                interpolated_data_frame['Original Time'] = \
+                    interpolated_data_frame.index.values.astype(float)
                 # change the index to percent of gait cycle
                 interpolated_data_frame.index = percent_gait
                 steps[i] = interpolated_data_frame
                 # compute some step stats
                 step_data['Number of Samples'].append(len(data_frame))
-                step_data['Step Duration'].append(new_index[-1])
-                step_data['Cadence'].append(1.0 / new_index[-1])
+                step_data['Step Duration'].append(duration)
+                step_data['Cadence'].append(1.0 / duration)
                 if belt_speed_column is not None:
                     stride_len = simps(data_frame[belt_speed_column].values,
-                                       new_index)
+                                       data_frame.index.values.astype(float))
                     step_data['Stride Length'].append(stride_len)
                     avg_speed = data_frame[belt_speed_column].mean()
                     step_data['Average Belt Speed'].append(avg_speed)

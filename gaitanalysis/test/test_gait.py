@@ -238,13 +238,18 @@ class TestWalkingData():
         side = 'right'
         series = 'Right Vertical GRF'
 
-        steps = walking_data.split_at('right')
+        steps = walking_data.split_at(side)
 
         for i, step in steps.iteritems():
-            start_step = walking_data.strikes[side][i]
-            end_step = walking_data.strikes[side][i + 1]
-            testing.assert_allclose(step[series],
-                walking_data.raw_data[series][start_step:end_step])
+            start_heelstrike_time = walking_data.strikes[side][i]
+            end_heelstrike_time = walking_data.strikes[side][i + 1]
+            hs_to_hs = walking_data.raw_data[series][start_heelstrike_time:end_heelstrike_time]
+            num_samples = len(step[series])
+            new_time = np.linspace(0.0, end_heelstrike_time,
+                                   num=num_samples + 1)
+            old_time = np.linspace(0.0, end_heelstrike_time, num=num_samples)
+            new_values = np.interp(new_time, old_time, hs_to_hs.values)
+            testing.assert_allclose(step[series], new_values[:-1])
 
         if plot is True:
             walking_data.plot_steps(series, 'Left Vertical GRF')
@@ -252,10 +257,15 @@ class TestWalkingData():
         steps = walking_data.split_at(side, 'stance')
 
         for i, step in steps.iteritems():
-            start_step = walking_data.strikes[side][i]
-            end_step = walking_data.offs[side][i + 1]
-            testing.assert_allclose(step[series],
-                walking_data.raw_data[series][start_step:end_step])
+            start_heelstrike_time = walking_data.strikes[side][i]
+            end_toeoff_time = walking_data.offs[side][i + 1]
+            hs_to_toeoff = walking_data.raw_data[series][start_heelstrike_time:end_toeoff_time]
+            num_samples = len(step[series])
+            new_time = np.linspace(0.0, end_toeoff_time,
+                                   num=num_samples + 1)
+            old_time = np.linspace(0.0, end_toeoff_time, num=num_samples)
+            new_values = np.interp(new_time, old_time, hs_to_toeoff.values)
+            testing.assert_allclose(step[series], new_values[:-1])
 
         if plot is True:
             walking_data.plot_steps(series, 'Left Vertical GRF')
@@ -263,15 +273,23 @@ class TestWalkingData():
         steps = walking_data.split_at(side, 'swing')
 
         for i, step in steps.iteritems():
-            start_step = walking_data.offs[side][i]
-            end_step = walking_data.strikes[side][i]
-            testing.assert_allclose(step[series],
-                walking_data.raw_data[series][start_step:end_step])
+            start_toeoff_time = walking_data.offs[side][i]
+            end_heelstrike_time = walking_data.strikes[side][i]
+            toeoff_to_heelstrike = walking_data.raw_data[series][start_toeoff_time:end_heelstrike_time]
+            num_samples = len(step[series])
+            new_time = np.linspace(0.0, end_heelstrike_time,
+                                   num=num_samples + 1)
+            old_time = np.linspace(0.0, end_heelstrike_time, num=num_samples)
+            new_values = np.interp(new_time, old_time,
+                                   toeoff_to_heelstrike.values)
+            testing.assert_allclose(step[series], new_values[:-1])
 
         if plot is True:
             walking_data.plot_steps(series, 'Left Vertical GRF')
             import matplotlib.pyplot as plt
             plt.show()
+
+        # TODO : Add tests for step data, i.e. cadence, etc.
 
     def test_plot_steps(self):
 
