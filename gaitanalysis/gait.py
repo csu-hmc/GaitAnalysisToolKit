@@ -275,17 +275,17 @@ class WalkingData(object):
         Computes to orientation of accelerometers on a subject during quiet
         standing relative to treadmill Y-axis
         """
-        bodymass = np.mean(data_frame['FP1.ForY'] + data_frame['FP2.ForY']) / 9.81
-        sensor_angle = {}
+        self.bodymass = np.mean(data_frame['FP1.ForY'] + data_frame['FP2.ForY']) / 9.81
+        self.sensor_angle = {}
         for column in data_frame.columns:
             if '_AccX' in column:
-                sensor_angle[column] = np.arcsin(-data_frame[column].mean()/9.81)
+                self.sensor_angle[column] = np.arcsin(-data_frame[column].mean()/9.81)
             if '_AccY' in column:
-                sensor_angle[column] = np.arccos(-data_frame[column].mean()/9.81)
+                self.sensor_angle[column] = np.arccos(-data_frame[column].mean()/9.81)
             if '_AccZ' in column:
-                sensor_angle[column] = np.arcsin(-data_frame[column].mean()/9.81)
+                self.sensor_angle[column] = np.arcsin(-data_frame[column].mean()/9.81)
 
-        return bodymass, sensor_angle
+        return self.bodymass, self.sensor_angle
 
     def grf_landmarks(self, right_vertical_signal_col_name,
                       left_vertical_signal_col_name, method='force',
@@ -403,7 +403,7 @@ class WalkingData(object):
         col_names : list of strings
             A variable number of strings naming the columns to plot
         side : {right|left}
-        event : {heelstrikes|toeoffs|both}
+        event : {heelstrikes|toeoffs|both|none}
 
         Returns
         =======
@@ -412,6 +412,9 @@ class WalkingData(object):
 
         if len(col_names) == 0:
             raise ValueError('Please supply some column names to plot.')
+
+        if event not in ['heelstrikes', 'toeoffs', 'both', 'none']:
+            raise ValueError('{} is not a valid event to plot'.format(event))
 
         if side != 'right' and side != 'left':
             raise ValueError('Please indicate \'right\' or \'left\' side.')
@@ -424,8 +427,10 @@ class WalkingData(object):
                 xlimit = foot_strikes[event][num_steps_to_plot]   
             except IndexError:
                 raise IndexError('{} is not a valid number of steps to plot'.format(num_steps_to_plot))
+            except KeyError:
+                xlimit = foot_strikes['heelstrikes'][num_steps_to_plot]
         else:
-            xlimit = foot_strikes[event][-1]
+            xlimit = time[self.max_idx]
 
         time = self.raw_data.index.values.astype(float)
 
@@ -450,10 +455,10 @@ class WalkingData(object):
 
             if event == 'toeoffs' or event == 'both':
                 for off in self.offs[side]:
-                    ax.plot(off*ones, ax.get_ylim(), 'b', label=side + ' toeoffs')
+                    ax.plot(off*ones, ax.get_ylim(), 'g', label=side + ' toeoffs')
 
             ax.set_ylabel(col_name)
-            ax.set_xlim((ax.get_xlim()[0], xlimit))
+            ax.set_xlim((time[self.min_idx], xlimit))
 
         # draw only on the last axes
         ax.set_xlabel('Time [s]')

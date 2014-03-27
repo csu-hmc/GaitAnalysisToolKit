@@ -1147,9 +1147,21 @@ class DFlowData(object):
         (010)
         """
 
+        trial_directory = os.path.split(self.meta_yml_path)[0]
+        try:
+            calib_file = self.meta['trial']['files']['accel-calibration']
+        except KeyError:
+            raise Exception('Accelerometer calibration file not specified ' + 
+                            'in {}.'.format(self.meta_yml_path))
+        except AttributeError:
+            raise Exception('You must include a meta data file with a path ' +
+                            'to the accelerometer calibration file.')
+        else:
+            calib_file_path = os.path.join(trial_directory, calib_file)
+
         accel_channels = self.accel_column_labels       
 
-        cal = pandas.read_csv(self.meta['trial']['files']['accel-calibration'])
+        cal = pandas.read_csv(calib_file_path)
 
         cal = cal.drop('Time', 1)
 
