@@ -575,6 +575,9 @@ class WalkingData(object):
         if lead[0] > trail[0]:
             trail = trail[1:]
 
+        # TODO: If there are short steps, and num_samples=None then
+        # max_num_samples will be low. This needs to be fixed. See issue
+        # #71.
         samples = []
         for i, lead_val in enumerate(lead):
             try:
