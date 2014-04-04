@@ -112,9 +112,7 @@ function [angles, velocities, moments, forces] = leg2d(times, mocapdata, fpdata,
 		% segment parameters
 		ip = segments(i,1);		% index of proximal marker
 		id = segments(i,2);		% index of distal marker
-		m  = segments(i,4);		% mass as fraction of body mass
 		cm = segments(i,5);		% center of mass location, relative to line from prox to dist marker
-		k  = segments(i,6);		% radius of gyration, relative to length
 
 		% x and y coordinates of proximal and distal marker, and first and second derivatives
 		Px   = mocap_f(:,2*ip-1);
@@ -166,41 +164,43 @@ function [angles, velocities, moments, forces] = leg2d(times, mocapdata, fpdata,
 	% do the inverse dynamics, starting at the foot, but not for the HAT segment
 	for i = Nsegments:-1:2
 
-			inertia = m * (k*seglength(i))^2;			% compute moment of inertia
+		m = segments(i,4);		% mass as fraction of body mass
+		k = segments(i,6);		% radius of gyration, relative to length
+		inertia = m * (k*seglength(i))^2;			% compute moment of inertia
 
-			% compute vectors P and D from center of mass to distal and proximal joint
-			jointmarker = segments(i,3);					% marker for proximal joint of this segment
-			Px = mocap_f(:,2*jointmarker-1) - segx(:,i);
-			Py = mocap_f(:,2*jointmarker)   - segy(:,i);
-			if (i < Nsegments)
-				jointmarker = segments(i+1,3);			% marker for distal joint of this segment (=proximal joint of next segment)
-				Dx = mocap_f(:,2*jointmarker-1) - segx(:,i);
-				Dy = mocap_f(:,2*jointmarker)   - segy(:,i);
-				FDx = -FPx;		% force at distal joint is minus the proximal force in the previous segment
-				FDy = -FPy;
-				MD  = -MP;		% moment at distal joint
-			else						% for the last segment, distal joint is the force plate data, applied to foot at global origin
-				Dx = -segx(:,i);
-				Dy = -segy(:,i);
-				FDx = fpdata_f(:,1);
-				FDy = fpdata_f(:,2);
-				MD  = fpdata_f(:,3);
-			end
-
-			% solve force and moment at proximal joint from the Newton-Euler equations
-			FPx = m * segxdd(:,i) - FDx;
-			FPy = m * segydd(:,i) - FDy + m * g;
-			MP  = inertia * segadd(:,i) - MD - (Dx.*FDy - Dy.*FDx) - (Px.*FPy - Py.*FPx);
-
-			% and store proximal joint motions and loads in the output variables
-			j = i-1;			% joint index (1, 2, or 3) for the proximal joint of segment i
-			sign = segments(i,7);
-			angles(:,j) 	= sign * (sega(:,i)  - sega(:,i-1));
-			velocities(:,j) = sign * (segad(:,i) - segad(:,i-1));
-			moments(:,j) 	= sign * MP;
-			forces(:,2*j-1) = FPx;
-			forces(:,2*j) 	= FPy;
-
+		% compute vectors P and D from center of mass to distal and proximal joint
+		jointmarker = segments(i,3);					% marker for proximal joint of this segment
+		Px = mocap_f(:,2*jointmarker-1) - segx(:,i);
+		Py = mocap_f(:,2*jointmarker)   - segy(:,i);
+		if (i < Nsegments)
+			jointmarker = segments(i+1,3);			% marker for distal joint of this segment (=proximal joint of next segment)
+			Dx = mocap_f(:,2*jointmarker-1) - segx(:,i);
+			Dy = mocap_f(:,2*jointmarker)   - segy(:,i);
+			FDx = -FPx;		% force at distal joint is minus the proximal force in the previous segment
+			FDy = -FPy;
+			MD  = -MP;		% moment at distal joint
+		else						% for the last segment, distal joint is the force plate data, applied to foot at global origin
+			Dx = -segx(:,i);
+			Dy = -segy(:,i);
+			FDx = fpdata_f(:,1);
+			FDy = fpdata_f(:,2);
+			MD  = fpdata_f(:,3);
 		end
+
+		% solve force and moment at proximal joint from the Newton-Euler equations
+		FPx = m * segxdd(:,i) - FDx;
+		FPy = m * segydd(:,i) - FDy + m * g;
+		MP  = inertia * segadd(:,i) - MD - (Dx.*FDy - Dy.*FDx) - (Px.*FPy - Py.*FPx);
+
+		% and store proximal joint motions and loads in the output variables
+		j = i-1;			% joint index (1, 2, or 3) for the proximal joint of segment i
+		sign = segments(i,7);
+		angles(:,j) 	= sign * (sega(:,i)  - sega(:,i-1));
+		velocities(:,j) = sign * (segad(:,i) - segad(:,i-1));
+		moments(:,j) 	= sign * MP;
+		forces(:,2*j-1) = FPx;
+		forces(:,2*j) 	= FPy;
+
+	end
 
 end
