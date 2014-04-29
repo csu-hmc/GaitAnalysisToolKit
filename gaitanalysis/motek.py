@@ -623,7 +623,9 @@ class DFlowData(object):
         ----------
         labels : list of strings
             This should be a superset of column labels, some of which may be
-            human body model results.
+            human body model results, and should include the default analog
+            channel labels output from the D-Flow mocap model, i.e.
+            "Channel[1-99].Anlg".
 
         Returns
         -------
@@ -656,9 +658,9 @@ class DFlowData(object):
             emg_column_labels = ['Channel{}.Anlg'.format(4 * n + 13) for n in
                                  range(number_delsys_sensors)]
 
-            accel_column_labels = ['Channel{}.Anlg'.format(4 * n + m + 14) for n
-                                   in range(number_delsys_sensors) for m in
-                                   range(3)]
+            accel_column_labels = ['Channel{}.Anlg'.format(4 * n + m + 14)
+                                   for n in range(number_delsys_sensors) for
+                                   m in range(3)]
 
             return emg_column_labels, accel_column_labels
 
@@ -677,10 +679,13 @@ class DFlowData(object):
         emg_column_labels, accel_column_labels = delsys_column_labels()
 
         # Remove channels from the default list that are not in `analog_labels`
-        emg_column_labels = [label for label in emg_column_labels if label in analog_labels]
-        accel_column_labels = [label for label in accel_column_labels if label in analog_labels]
+        emg_column_labels = [label for label in emg_column_labels if label
+                             in analog_labels]
+        accel_column_labels = [label for label in accel_column_labels if
+                               label in analog_labels]
 
-        return analog_labels, analog_indices, emg_column_labels, accel_column_labels
+        return (analog_labels, analog_indices, emg_column_labels,
+                accel_column_labels)
 
     def _force_column_labels(self, without_center_of_pressure=False):
         """Returns a list of force column labels.
@@ -707,12 +712,11 @@ class DFlowData(object):
                 in self.force_plate_suffix if not f(suffix)]
 
     def _relabel_analog_columns(self, data_frame):
-        """
-        Relabels analog channels in data frame to names defined in the
+        """Relabels analog channels in data frame to names defined in the
         yml meta file. Channels not specified in the meta file are keep
-        their original names.
-        self.analog_column_labels, self.emg_column_labels, and
-        self.accel_column_labels are updated with the new names.
+        their original names. self.analog_column_labels,
+        self.emg_column_labels, and self.accel_column_labels are updated
+        with the new names.
 
         Parameters
         ==========
@@ -757,7 +761,9 @@ class DFlowData(object):
 
         data_frame.rename(columns=channel_names, inplace=True)
 
-        for column_label_list in (self.analog_column_labels, self.emg_column_labels, self.accel_column_labels):
+        for column_label_list in (self.analog_column_labels,
+                                  self.emg_column_labels,
+                                  self.accel_column_labels):
             for i,label in enumerate(column_label_list):
                 if label in channel_names:
                     column_label_list[i] = channel_names[label]
@@ -851,16 +857,60 @@ class DFlowData(object):
         """
 
         if ignore_hbm is True:
-            data_frame = pandas.read_csv(self.mocap_tsv_path, delimiter='\t',
-                                   usecols=self.non_hbm_column_indices)
+            data_frame = pandas.read_csv(self.mocap_tsv_path,
+                                         delimiter='\t',
+                                         usecols=self.non_hbm_column_indices)
         else:
             if id_hbm_na is True:
                 hbm_na_values = {k: self.hbm_na for k in
                                  self.hbm_column_labels}
-                data_frame = pandas.read_csv(self.mocap_tsv_path, delimiter='\t',
-                                       na_values=hbm_na_values)
+                data_frame = pandas.read_csv(self.mocap_tsv_path,
+                                             delimiter='\t',
+                                             na_values=hbm_na_values)
             else:
-                data_frame =  pandas.read_csv(self.mocap_tsv_path, delimiter='\t')
+                data_frame = pandas.read_csv(self.mocap_tsv_path,
+                                             delimiter='\t')
+
+        return data_frame
+
+    def _relabel_markers(self, data_frame):
+        """Returns the data frame with the columns renamed to reflect the
+        provided mapping and updates the marker column and mocap column
+        label attributes to reflect the new names. If there is no marker map
+        in the meta data the data frame is returned unmodified.
+
+        Parameters
+        ==========
+        data_frame : pandas.DataFrame
+            A data frame with column names which match the keys in
+            the meta data:trial:marker-map.
+
+        """
+        # TODO : If there is no meta data yml file this will raise an error.
+        trial_dict = self.meta['trial']
+        try:
+            marker_map = trial_dict['marker-map']
+        except KeyError:
+            pass
+        else:
+            label_map = {}
+            new_marker_labels = []
+            for label in self.marker_column_labels:
+                marker_name, suffix = label.split('.')
+                if marker_name in marker_map:
+                    new_label = marker_map[marker_name] + '.' + suffix
+                    new_marker_labels.append(new_label)
+                    i = self.mocap_column_labels.index(label)
+                    self.mocap_column_labels[i] = new_label
+                    label_map[label] = new_label
+                else:
+                    new_marker_labels.append(label)
+            self.marker_column_labels = new_marker_labels
+
+            data_frame = data_frame.rename(columns=label_map)
+
+        # TODO : This should also relabel columns from the record module
+        # data too.
 
         return data_frame
 
@@ -1006,11 +1056,11 @@ class DFlowData(object):
         accelerometers = self.accel_column_labels[:4 * 3]
 
         compensated_forces = \
-                        octave.inertial_compensation(calibration_data_frame[forces].values,
-                        calibration_data_frame[accelerometers].values,
-                        data_frame[self.treadmill_markers].values,
-                        data_frame[forces].values,
-                        data_frame[accelerometers].values)
+            octave.inertial_compensation(calibration_data_frame[forces].values,
+                                         calibration_data_frame[accelerometers].values,
+                                         data_frame[self.treadmill_markers].values,
+                                         data_frame[forces].values,
+                                         data_frame[accelerometers].values)
 
         data_frame[forces] = compensated_forces
 
@@ -1152,7 +1202,7 @@ class DFlowData(object):
         try:
             calib_file = self.meta['trial']['files']['accel-calibration']
         except KeyError:
-            raise Exception('Accelerometer calibration file not specified ' + 
+            raise Exception('Accelerometer calibration file not specified ' +
                             'in {}.'.format(self.meta_yml_path))
         except AttributeError:
             raise Exception('You must include a meta data file with a path ' +
@@ -1160,7 +1210,7 @@ class DFlowData(object):
         else:
             calib_file_path = os.path.join(trial_directory, calib_file)
 
-        accel_channels = self.accel_column_labels       
+        accel_channels = self.accel_column_labels
 
         cal = pandas.read_csv(calib_file_path)
 
@@ -1187,7 +1237,7 @@ class DFlowData(object):
 
         return data_frame
 
-    def clean_data(self, interpolate_markers=False):
+    def clean_data(self, interpolate_markers=False, ignore_hbm=True):
         """Returns the processed, "cleaned", data.
 
         Parameters
@@ -1196,13 +1246,16 @@ class DFlowData(object):
             If true the missing markers will be interpolated. Note that if
             force compensation is needed, the treadmill missing markers will
             always be fixed.
+        ignore_hbm : boolean, optional, default=True
+            HBM columns will not be loaded from the mocap model data TSV
+            file.
 
         Notes
         -----
 
         1. Loads the mocap and record modules into Pandas ``DataFrame``\s.
-        2. Relabels of columns of Pandas ``DataFrame`` to more meaningful
-           names.
+        2. Relabels the columns of Pandas ``DataFrame`` to more meaningful
+           names if this is specified in the meta data.
         3. Shifts the Delsys signals in the mocap module data to accomodate
            for the wireless time delay, ~96ms.
         4. Identifies the missing values in the mocap marker data and
@@ -1234,11 +1287,17 @@ class DFlowData(object):
         """
         if self.mocap_tsv_path is not None:
 
-            raw_mocap_data_frame = self._load_mocap_data(ignore_hbm=True)
+            raw_mocap_data_frame = self._load_mocap_data(ignore_hbm=ignore_hbm)
 
-            relabeled_mocap_data_frame = self._relabel_analog_columns(raw_mocap_data_frame)
+            relabeled_mocap_data_frame = \
+                self._relabel_analog_columns(raw_mocap_data_frame)
 
-            shifted_mocap_data_frame = self._shift_delsys_signals(relabeled_mocap_data_frame)
+            if self.meta_yml_path is not None:
+                relabeled_mocap_data_frame = \
+                    self._relabel_markers(relabeled_mocap_data_frame)
+
+            shifted_mocap_data_frame = \
+                self._shift_delsys_signals(relabeled_mocap_data_frame)
 
             identified_mocap_data_frame = \
                 self._identify_missing_markers(shifted_mocap_data_frame)
@@ -1261,7 +1320,6 @@ class DFlowData(object):
             self.raw_record_data_frame = self._load_record_data()
 
         self.data = self._merge_mocap_record()
-
 
     def _merge_mocap_record(self):
         """Returns a data frame that is a merger of the mocap and record
@@ -1322,7 +1380,8 @@ class DFlowData(object):
             except AttributeError:
                 raise AttributeError('No events have been initialized.')
             except KeyError:
-                raise KeyError('{} is not a valid event. Valid events are: {}.'.format(event, ','.join(self.events.keys())))
+                msg = '{} is not a valid event. Valid events are: {}.'
+                raise KeyError(msg.format(event, ','.join(self.events.keys())))
             else:
                 start_i = np.argmin(np.abs(self.data['TimeStamp'] - start))
                 stop_i = np.argmin(np.abs(self.data['TimeStamp'] - stop))
