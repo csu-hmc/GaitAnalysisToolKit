@@ -385,6 +385,7 @@ There are some standard meta data that should be collected with every trial.
        description: Perturb the subject during walking and running.
    subject:
        id: 567
+       birthdate: 1982-05-17
        age: 28
        mass: 70
        mass-units: kilogram
@@ -410,6 +411,9 @@ There are some standard meta data that should be collected with every trial.
            cortex: cortex-001.cap
            mox: gait-001.mox
            meta: meta-001.yml
+       marker-map:
+           M5: T10
+           M6: STRN
 
 .. todo::
    HBM requires some measurements of the person and that can be found in the
@@ -419,6 +423,91 @@ There are some standard meta data that should be collected with every trial.
 .. todo::
    We need to store the scaling factors/matrices for the analog signals
    in the meta data.
+
+study
+   id
+      Some unique identified for your study.
+   name
+      A string which contains the name of the project.
+   description
+      One or more sentences that give a basic description of the project.
+subject
+    id
+        A unique identifier for the subject in this trial. This can be a
+        number, a string, etc.
+    birth-date
+        A date formatted string that gives the subjects birthdate.
+    age
+        A integer giving the subjects age in years at the time of the trial.
+        It's better to provide the subject's birthdate so that the age can be
+        computed for the date of the trial.
+    mass
+        A positive real number giving the subjects weight. Note that actual
+        weight on the trial day can likely be computed from the force plate
+        data and that should be used for accuracy purposes.
+    mass-units
+        The full name or standard unit symbol for the mass quantity.
+    height
+        A positive real number giving the subject's height the day of the
+        trial.
+    height-units
+        The full name or standard unit symbol for the height quantity.
+    gender
+        A string describing the gender of the subject.
+trial
+   id
+      A unique identifier for this trial. The meta file name should also
+      include this identifier.
+   datetime
+      A date formatted string giving the date and/or time of the trial. If
+      you are concerned about the time zone, UTC time is the best to use
+      here.
+   notes
+        A string with a any notes about the trial. The more of this information
+        that can be included in structured tags in the meta.yml file the
+        better. This should be a catch-all otherwise.
+   nominal-speed
+      Most trials have a nominal speed throughout the duration of the trial.
+      This field can be used to denote that. This is primarily for reference as
+      the actual speed can be recorded in D-Flow's record module.
+   nominal-speed-units: m/s
+      The full name or standard unit symbol for the mass quantity.
+   stationary-platform
+      A boolean value, [True|False], that indicates whether the treadmill
+      motion was actuated during the trial. If this flag is false, the
+      DFlowData class will look for compensation data, compensate for the
+      inertial affects to the force plate data, and express the forces and
+      moments in the motion capture reference frame.
+   pitch
+      A boolean value, [True|False], which indicates if the pitch degree of
+      freedom was acutated during the trial.
+   sway
+      A boolean value, [True|False], which indicates if the lateral (sway)
+      degree of freedom was acutated during the trial.
+   marker-set
+      A string that indicates the HBM marker set used during the trial
+      [full|lower|NA].
+   hardware-settings
+      There are tons of settings for the hardware in both D-Flow, Cortex, and
+      the other software in the system. We hope to save the settings from each
+      software with each trial, but for now this field can be used to note the
+      most important ones.
+
+      high-performance
+         A boolean value that indicates whether the D-Flow high performance
+         setting was on (True) or off (False).
+
+   files
+      This should be a key value mapping of files associated with this trial.
+      The values should be the path to the file relative to this meta file.
+   marker-map
+      If you want to rename the column headers for markers in the mocap module
+      or record module's TSV files then you can specify the mapping here. For
+      example, if the column headings in the raw data file are ``M5.PosX``,
+      ``M5.PosY``, and ``M5.PosZ`` but you want to give the marker an easy to
+      remember name, then the marker map ``M5: T10`` will set the column
+      headers for that marker to ``T10.PosX``, ``T10.PosY``, and ``T10.PosZ``,
+      respectively. This only works for header names that end in ``.Pos[XYZ]``.
 
 Units
 ~~~~~

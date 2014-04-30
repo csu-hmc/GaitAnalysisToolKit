@@ -694,7 +694,7 @@ class TestDFlowData():
         dflow_data._store_compensation_data_path()
         unloaded_trial = dflow_data._load_compensation_data()
 
-        # TODO : Impelment a test.
+        # TODO : Implement a test.
 
         #assert len(set(unloaded_trial.columns).diff() == 0
 
@@ -730,7 +730,7 @@ class TestDFlowData():
         all_labels = dflow_data.mocap_column_labels
 
         anal_lab, anal_ind, emg_lab, accel_lab = \
-              dflow_data._analog_column_labels(all_labels)
+            dflow_data._analog_column_labels(all_labels)
 
         assert anal_lab == self.cortex_analog_labels + self.delsys_labels
 
@@ -785,6 +785,44 @@ class TestDFlowData():
 
         for col in self.default_delsys_labels:
             assert col in emg_lab + accel_lab
+
+    def test_relabel_markers(self):
+
+        dflow_data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
+                               meta_yml_path=self.path_to_meta_data_file)
+        mocap_data_frame = dflow_data._load_mocap_data(ignore_hbm=True)
+
+        # If there is no marker map then this method should do nothing.
+        relabeled_data_frame = dflow_data._relabel_markers(mocap_data_frame)
+        compare_data_frames(relabeled_data_frame, mocap_data_frame)
+
+        # If there is a marker map then the labels should be changed.
+        dflow_data.meta['trial']['marker-map'] = {'T10': 'STRN'}
+        relabeled_data_frame = dflow_data._relabel_markers(mocap_data_frame)
+
+        assert 'T10.PosX' not in relabeled_data_frame.columns
+        assert 'T10.PosY' not in relabeled_data_frame.columns
+        assert 'T10.PosZ' not in relabeled_data_frame.columns
+
+        assert 'T10.PosX' not in dflow_data.marker_column_labels
+        assert 'T10.PosY' not in dflow_data.marker_column_labels
+        assert 'T10.PosZ' not in dflow_data.marker_column_labels
+
+        assert 'T10.PosX' not in dflow_data.mocap_column_labels
+        assert 'T10.PosY' not in dflow_data.mocap_column_labels
+        assert 'T10.PosZ' not in dflow_data.mocap_column_labels
+
+        assert 'STRN.PosX' in relabeled_data_frame.columns
+        assert 'STRN.PosY' in relabeled_data_frame.columns
+        assert 'STRN.PosZ' in relabeled_data_frame.columns
+
+        assert 'STRN.PosX' in dflow_data.marker_column_labels
+        assert 'STRN.PosY' in dflow_data.marker_column_labels
+        assert 'STRN.PosZ' in dflow_data.marker_column_labels
+
+        assert 'STRN.PosX' in dflow_data.mocap_column_labels
+        assert 'STRN.PosY' in dflow_data.mocap_column_labels
+        assert 'STRN.PosZ' in dflow_data.mocap_column_labels
 
     def test_shift_delsys_signals(self):
         dflow_data = DFlowData(self.path_to_mocap_data_file)
