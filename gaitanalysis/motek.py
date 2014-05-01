@@ -4,6 +4,7 @@
 # standard library
 import re
 import os
+from distutils.version import LooseVersion
 
 # external libraries
 import numpy as np
@@ -825,30 +826,56 @@ class DFlowData(object):
 
         return data_frame
 
-    def _interpolate_missing_markers(self, data_frame, time_col="TimeStamp",
-                                     order=1):
-        """Returns the data frame with all missing markers replaced by some
-        interpolated value."""
+    def _missing_markers_are_zeros(self):
+        """Returns True if the mocap module marker missing values are
+        represented as strings of zeros, '-0.000000' and '0.000000' and
+        False if missing markers are represented as the previous valid
+        value. This depends on the D-Flow version being present in the trial
+        meta data. If it isn't then it is assumed that missing markers are
+        represented as strings of zeros, i.e. latest D-Flow behavior."""
 
-        data_frame = \
-            spline_interpolate_over_missing(data_frame, time_col,
-                                            order=order,
-                                            columns=self.marker_column_labels)
+        try:
+            trial_meta = self.meta['trial']
+        except AttributeError:
+            print("No meta data was found, so the D-Flow version is assumed "
+                  "to be the latest version available.")
+            missing_markers_are_zeros = True
+        else:
+            try:
+                dflow_version = LooseVersion(trial_meta['dflow-version'])
+            except KeyError:
+                print("No D-Flow version was found in the meta data, so the "
+                      "D-Flow version is assumed to be the latest version "
+                      "available and missing markers are represented as "
+                      "strings of zeros.")
+                missing_markers_are_zeros = True
+            else:
+                if dflow_version <= LooseVersion('3.16.1'):
+                    missing_markers_are_zeros = False
+                elif dflow_version >= LooseVersion('3.16.2rc4'):
+                    missing_markers_are_zeros = True
+                else:
+                    print("It is unknown whether this version of D-Flow, "
+                          "{}, represents missing markers as zeros. We are "
+                          "assuming that is does.".format(dflow_version))
+                    missing_markers_are_zeros = True
 
-        return data_frame
+        return missing_markers_are_zeros
 
-    def _load_mocap_data(self, ignore_hbm=False, id_hbm_na=False):
-        """Returns a data frame generated from the tsv mocap file.
+    def _load_mocap_data(self, ignore_hbm=False, id_na=False):
+        """Returns a data frame generated from the mocap TSV file.
 
         Parameters
         ----------
         ignore_hbm : boolean, optional, default=False
             If true, the columns associated with D-Flow's real time human
             body model computations will not be loaded.
-        id_hbm_na : boolean, optional, default=False
-            If true and `ignore_hbm` is false, then the HBM columns will be
-            loaded with all '0.000000' and '-0.000000' strings in the HBM
-            columns replaced with NaN.
+        id_na : boolean, optional, default=False
+            If true the marker and/or HBM columns will be loaded with all
+            '0.000000' and '-0.000000' strings in the HBM columns replaced
+            with numpy.NaN. This is dependent on the D-Flow version as,
+            versions <= 3.16.1 stored missing markers as the previous valid
+            value.
 
         Returns
         -------
@@ -857,19 +884,31 @@ class DFlowData(object):
         """
 
         if ignore_hbm is True:
-            data_frame = pandas.read_csv(self.mocap_tsv_path,
-                                         delimiter='\t',
-                                         usecols=self.non_hbm_column_indices)
-        else:
-            if id_hbm_na is True:
-                hbm_na_values = {k: self.hbm_na for k in
-                                 self.hbm_column_labels}
-                data_frame = pandas.read_csv(self.mocap_tsv_path,
-                                             delimiter='\t',
-                                             na_values=hbm_na_values)
+            column_indices = self.non_hbm_column_indices
+
+            if id_na is True and self._missing_markers_are_zeros():
+                na_values = {k: self.hbm_na for k in
+                             self.marker_column_labels}
             else:
-                data_frame = pandas.read_csv(self.mocap_tsv_path,
-                                             delimiter='\t')
+                na_values = None
+
+        else:
+            column_indices = None
+
+            if id_na is True:
+                if self._missing_markers_are_zeros():
+                    labels = (self.marker_column_labels +
+                              self.hbm_column_labels)
+                else:
+                    labels = self.hbm_column_labels
+                na_values = {k: self.hbm_na for k in labels}
+            else:
+                na_values = None
+
+        data_frame = pandas.read_csv(self.mocap_tsv_path,
+                                     delimiter='\t',
+                                     usecols=column_indices,
+                                     na_values=na_values)
 
         return data_frame
 
@@ -1108,6 +1147,9 @@ class DFlowData(object):
 
             unloaded_trial = self._clean_compensation_data(unloaded_trial)
 
+            # TODO : This needs to be updated to reflect the change in
+            # missing markers in D-Flow 3.16.2. But then the meta data for
+            # the compensation trial needs to be available.
             if markers_missing is True:
                 identifier = MissingMarkerIdentifier(mocap_data_frame)
                 mocap_data_frame = \
@@ -1237,82 +1279,94 @@ class DFlowData(object):
 
         return data_frame
 
-    def clean_data(self, interpolate_markers=False, ignore_hbm=True):
+    def clean_data(self, ignore_hbm=False, id_na=True, interpolate=True,
+                   interpolation_order=1):
         """Returns the processed, "cleaned", data.
 
         Parameters
         ----------
-        interpolate_markers : boolean, optional, default=False
-            If true the missing markers will be interpolated. Note that if
-            force compensation is needed, the treadmill missing markers will
-            always be fixed.
-        ignore_hbm : boolean, optional, default=True
+        ignore_hbm : boolean, optional, default=False
             HBM columns will not be loaded from the mocap model data TSV
-            file.
+            file. This can save some load time if you are not using that
+            data.
+        id_na : boolean, optional, default=True
+            Identifies any missing values in the marker and/or HBM data and
+            replaces the with np.NaN.
+        interpolate : boolean, optional, default=True
+            If true, the missing values in the markers and/or HBM columns
+            will be interpolated. Note that if force compensation is needed,
+            the markers on the treadmill will always have the missing values
+            interpolated regardless of this flag. This argument is ignored
+            if ``id_na`` is False, as there are no identified missing marker
+            values available to interpolate over.
+        interpolation_order : integer, optional, default=1
+            The spline interpolation order (between 1 and 5). See
+            scipy.interpolate.InterpolatedUnivariateSpline.
 
         Notes
         -----
 
         1. Loads the mocap and record modules into Pandas ``DataFrame``\s.
-        2. Relabels the columns of Pandas ``DataFrame`` to more meaningful
-           names if this is specified in the meta data.
+        2. Relabels the columns headers to more meaningful names if this is
+           specified in the meta data.
         3. Shifts the Delsys signals in the mocap module data to accomodate
-           for the wireless time delay, ~96ms.
+           for the wireless time delay. The value of the delay is stored in
+           ``DflowData.delsys_time_delay``.
         4. Identifies the missing values in the mocap marker data and
-           replaces with NaN.
-        5. Returns statistics on how many missing values in the marker time
-           series are present, the max consecutive missing values, etc.
-        6. Optionally, interpolates the missing marker values and replaces them with
-           interpolated estimates.
-        7. Compensates the force measurments for the motion of the treadmill
+           replaces them with ``numpy.nan``.
+        5. Optionally, interpolates the missing marker and HBM values and
+           replaces them with interpolated estimates.
+        6. Compensates the force measurments for the motion of the treadmill
            base, if needed.
 
-            1. Pulls the compensation file path from meta data.
-            2. Loads the compensation file (only the necessary columns).
+            1. Pulls the compensation mocap file path from meta data.
+            2. Loads the compensation mocap file (only the necessary columns).
             3. Identifies the missing markers and interpolates to fill them.
             4. Shifts the Delsys signals to correct time.
-            5. Filter the forces, accelerometer, and treadmill markers at 6 hz low pass.
-            6. Compute the compensated forces (apply inertial compensation and express
-                in global reference frame)
-            7. Replace the force/moment measurements in the mocap data file with the
-                compensated forces/moments.
+            5. Filter the forces, accelerometer, and treadmill markers with
+               a 6 hz low pass 2nd order Butterworth filter.
+            6. Computes the compensated forces by subtracting the inertial
+               forces and expressing the forces in the camera reference frame.
+            7. Replaces the force/moment measurements in the mocap data file
+               with the compensated forces/moments.
 
-        8. Optionally, low pass filter all human related data. (If there
-           wasn't a stationary platform, then these should always be
-           filtered with the same low pass filter as the compensation
-           algorithm used.)
-        9. Merges the data from the mocap module and record module into one
-           ``DataFrame``.
+        8. Merges the data from the mocap module and record module into one
+           data frame.
 
         """
         if self.mocap_tsv_path is not None:
 
-            raw_mocap_data_frame = self._load_mocap_data(ignore_hbm=ignore_hbm)
+            df = self._load_mocap_data(ignore_hbm=ignore_hbm, id_na=id_na)
 
-            relabeled_mocap_data_frame = \
-                self._relabel_analog_columns(raw_mocap_data_frame)
+            df = self._relabel_analog_columns(df)
 
             if self.meta_yml_path is not None:
-                relabeled_mocap_data_frame = \
-                    self._relabel_markers(relabeled_mocap_data_frame)
+                df = self._relabel_markers(df)
 
-            shifted_mocap_data_frame = \
-                self._shift_delsys_signals(relabeled_mocap_data_frame)
+            df = self._shift_delsys_signals(df)
 
-            identified_mocap_data_frame = \
-                self._identify_missing_markers(shifted_mocap_data_frame)
+            if not self._missing_markers_are_zeros() and id_na is True:
+                df = self._identify_missing_markers(df)
 
-            mocap_data_frame = \
-                self._generate_cortex_time_stamp(identified_mocap_data_frame)
+            df = self._generate_cortex_time_stamp(df)
 
-            if interpolate_markers is True:
-                mocap_data_frame = \
-                    self._interpolate_missing_markers(mocap_data_frame)
+            if interpolate is True and id_na is True:
+                if ignore_hbm is False:
+                    cols_to_interp = (self.marker_column_labels +
+                                      self.hbm_column_labels)
+                else:
+                    cols_to_interp = self.marker_column_labels
 
-            mocap_data_frame = self._compensate(mocap_data_frame,
-                                                markers_missing=not interpolate_markers)
+                df = spline_interpolate_over_missing(df, 'TimeStamp',
+                                                     order=interpolation_order,
+                                                     columns=cols_to_interp)
 
-            self.mocap_data = mocap_data_frame
+            # TODO : Here we always fix missing markers in the compensation
+            # trial data, but there may be a case that we wouldn't want to.
+            # This could be revisited.
+            df = self._compensate(df, markers_missing=True)
+
+            self.mocap_data = df
 
         if self.record_tsv_path is not None:
 
