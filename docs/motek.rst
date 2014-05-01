@@ -1,23 +1,15 @@
-The walk module provides tools to process and analyze with typical data
-collected during the measurement of human locomotion (gait). In general, the
-three dimensional coordinates throughout time of a set of markers which are
-attached to anatomical features on the human are tracked. Secondly, various
-analog signals are recorded. In particular, voltages which are proportional to
-the applied forces and moments on one or two force plates, voltages from
-electromyography (EMG) measurements, and/or accelerometers, etc. All of these
-measurements are stored as discrete samples in time.
+============
+Motek Module
+============
 
-D-Flow (and Cortex)
-===================
-
-Motek Medical sells hardware/software packages which include treadmills with
+`Motek Medical`_ sells hardware/software packages which include treadmills with
 force plate measurement capabilities and motion bases, motion capture systems,
 visual displays, and other sensors for various measurements. Their software,
 D-Flow_, manages the data streams from the various systems and is responsible
 for displaying interactive visuals, sounds, and motions to the subject. The
-``walk`` module includes a class that eases processing the data collected from
-typical D-Flow output files, but particularly designed with our hardware in
-mind.
+:mod:`gaitanalysis.motek` module includes classes that eases processing the
+data collected from typical D-Flow output files, but may have some limitations
+with respect to the hardware because we only have one system available.
 
 The Human Motion and Control Lab at Cleveland State University has such a
 system. Our system includes:
@@ -31,15 +23,17 @@ system. Our system includes:
 - Motek Medical's D-Flow software and visual display system.
 
 Cortex alone is capable of delivering data from the cameras, force plates, and
-analog sensors (EMG, Accelerometer), but D-Flow is required to collect data from
+analog sensors (EMG/Accelerometer), but D-Flow is required to collect data from
 digital sensors and the treadmill's motion (lateral, pitch, and belts). D-Flow
 can output multiple types of files which contain the different data.
 
-The treadmill's local coordinate system is such that the X coordinate points to
-the right, the Y coordinate points upwards, and the Z coordinate follows from
-the right-hand-rule, i.e. points backwards. The camera's coordinate system is
-aligned to the treadmill's frame during camera calibration.
+Our motion capture system's coordinate system is such that the X coordinate
+points to the right, the Y coordinate points upwards, and the Z coordinate
+follows from the right-hand-rule, i.e. points backwards with respect to a
+person walking forward on the treadmill. The camera's coordinate system is
+aligned to an origin point on treadmill's surface during camera calibration.
 
+.. _Motek Medical: http://www.motekmedical.com
 .. _ForceLink: http://www.forcelink.nl/
 .. _D-Flow: http://www.motekmedical.com/products/d-flow-software/
 .. _R-Mill: http://www.forcelink.nl/index.php/product/r-mill/
@@ -48,14 +42,14 @@ aligned to the treadmill's frame during camera calibration.
 .. _Cortex: http://www.motionanalysis.com/html/movement/cortex.html
 
 Mocap Module
-------------
+============
 
 D-Flow's mocap module has a file tab which allows you to export the time series
 data collected from Cortex in two different file formats: `tab separated
 values`_ (TSV) and the C3D format (see http://www.c3d.org). The TSV files are
 approximately twice the size of the C3D files, don't maintain machine
-precision, and do not allow for meta data storage. But for now, we only deal
-with the TSV file format.
+precision, and do not allow for meta data storage. But for now, this software
+only deals with the TSV file format.
 
 .. _tab separated values: http://en.wikipedia.org/wiki/Tab-separated_values
 
@@ -64,11 +58,14 @@ The first line is the header and contains a time stamp column, frame number
 column, marker position columns, force plate force/moment columns, force plate
 center of pressure columns, other analog columns, and potentially results from
 the real time `Human Body Model`_ which is included with the D-Flow software.
-These are detailed below. The numerical values of the measurements provided in
-decimal floating point notation with 6 decimals of precision, e.g.
+These are detailed below. The numerical values of the measurements are provided
+in decimal floating point notation with 6 decimals of precision, e.g.
 ``123456.123456`` [``%1.6f``].
 
 .. _Human Body Model: http://dx.doi.org/10.1007/s11517-013-1076-z
+
+Data Column Descriptions
+------------------------
 
 Time Stamp
    The ``TimeStamp`` column records the D-Flow system time when it receives a
@@ -84,26 +81,28 @@ Time Stamp
 
 Frame Number
    The ``FrameNumber`` column gives a positive integer to count the frame
-   numbers delivered by Cortex. It seems as though, none of the frames are
-   dropped but this should be verified.
+   numbers delivered by Cortex. It seems as though none of the frames are
+   ever dropped but this should be verified.
 Marker Coordinates
    The columns that correspond to marker coordinates have one of three
    suffixes: ``.PosX``, ``.PosY``, ``.PosZ``. The prefix is the marker name
    which is set by providing a name to the marker in Cortex. There are specific
    names which are required for D-Flow's Human Body Model's computations. The
    marker coordinates are given in meters. See below for some additional
-   virtualForce Plate Kinetics
+   virtual markers.
+Force Plate Kinetics
    There are three forces and three moments recorded by each of the two force
    plates in Newtons and Newton-Meters, respectively. The prefix for these
    columns is either ``FP1`` or ``FP2`` and represents either force plate 1
    (left) or 2 (right). The suffixes are either ``.For[XYZ]``, ``.Mom[XYZ]``
-   for the forces and moments, respectively.The force plate voltages are
+   for the forces and moments, respectively. The force plate voltages are
    sampled at a much higher frequency than the cameras, but delivered at the
-   Cortex camera sample rate, 100 Hz. A force/moment calibration matrix stored
-   in Cortex converts the voltages to forces and moments before sending it to
-   D-Flow [#]_. Cortex also computes the center of pressure from the forces,
-   moments, and force plate dimensions. These have the same prefixes for the
-   plate number, have the suffix ``.Cop[XYZ]``, and are in meters.
+   Cortex camera sample rate, 100 Hz through the D-Flow mocap module. A
+   force/moment calibration matrix stored in Cortex converts the voltages to
+   forces and moments before sending it to D-Flow [#]_. Cortex also computes
+   the center of pressure from the forces, moments, and force plate dimensions.
+   These have the same prefixes for the plate number, have the suffix
+   ``.Cop[XYZ]``, and are in meters.
 Analog Channels
    Cortex can sample additional analog channels. These columns have headers
    which take this form ``Channel[1-99].Anlg`` and the names are fixed to
@@ -159,10 +158,11 @@ Analog Channels
 
    .. note::
 
-      The EMG/Acceleromter channels are 72 milliseconds behind the force plate
-      measurements. There may be other delays present too that may or may not
-      be taken care of in Cortex or D-Flow. The lag of the EMG/Accelerometers
-      is due to the wireless communication.
+      The EMG/Acceleromter channels are 96 milliseconds behind the force plate
+      measurements, according to the DelSys manual [#]_. There may be other
+      delays present too that may or may not be taken care of in Cortex or
+      D-Flow. The lag of the EMG/Accelerometers is due to the wireless
+      communication.
 
 Human Body Model
    The mocap TSV file can also contain joint angles [degrees], joint moments
@@ -199,8 +199,10 @@ Segment Positions and Rotations
    applies the calibration matrix in D-Flow to get correct values using an ``.idc``
    file.
 
+.. [#] We've done independent measurements that show a ~72 millisecond delay.
+
 Missing Values
-~~~~~~~~~~~~~~
+--------------
 
 D-Flow handles missing values internally to perform well with their real time
 computations, but there are some important issues to note when dealing with the
@@ -211,11 +213,23 @@ techniques can be used to fill in the gaps.
 Firstly, the markers sometimes go missing (i.e. can't been seen by the cameras)
 which is typical of motion capture systems. Care must be taken that all markers
 are always captured by the system, but there will always be some missing
-values. When a marker goes missing D-Flow records the last non-missing value in
-all three axes until the marker is visible again. The following figure gives an
+values. If the data was recorded in a D-Flow version less than 3.16.2rc4 [#]_,
+D-Flow records the last non-missing value in all three axes until the marker is
+visible again when a marker goes missing. The following figure gives an
 example:
 
 .. image:: constant-markers.png
+
+.. [#] We received versions 3.16.1 and then 3.16.2rc4 so I have no idea when
+   the change was introduced between those versions. If this software is used
+   with a version between 3.16.1 and 3.16.2c4, then it may or may not work
+   correctly.
+
+In D-Flow versions greater than or equal to 3.16.2rc4 the missing markers are
+indicated in the TSV file as either ``0.000000`` or ``-0.000000``, which is the
+same as has been in the HBM columns in all versions of D-Flow. **The D-Flow
+version must be provided in the meta data yml file, otherwise it will assume
+D-Flow is at the latest version.**
 
 The mocap output file can also contain variables computed by the real time
 implementation of the Human Body Model (HBM). If the HBM computation fails at a
@@ -234,30 +248,30 @@ markers stored as constant values in D-Flow, you will likely get incorrect
 inverse dynamics.
 
 Time Delays
-~~~~~~~~~~~
+-----------
 
 There are time delays between the camera marker data, force plate analog
 signals, and the wireless EMG/Accelerometers. The documentation for the Delsys
 wireless system explicity states that there is a 96ms delay in the data with
-respect to the analog signals that are sample from the unit which is due to the
-wireless data transfer. There is also an measurable delay in the camera data
-with respect to the analog data which seems to hover around 7 ms.
+respect to the analog signals that are sampled from the unit which is due to
+the wireless data transfer. There is also an measurable delay in the camera
+data with respect to the analog data which seems to hover around 7 ms.
 
 Other
-~~~~~
+-----
 
 Note that the order of the "essential" measurements in the file must be
 retained if you expect to run the file back into D-Flow for playback. I think
 the essential measurements are the time stamp, frame number, marker
-coordinates, and force plate kinetics, and analog channels [#]_ (maybe because of
-the IDC file.
+coordinates, and force plate kinetics, and analog channels [#]_ (maybe because
+of the IDC file).
 
 .. [#] The first twelve analog channels may only be required because we use the
    ``.idc`` file to work around the fact that the ``.MomY`` force plate moments
    are not correctly collected by D-Flow from Cortex.
 
 Inertial Compensation
-~~~~~~~~~~~~~~~~~~~~~
+---------------------
 
 If you accelerate the treadmill there will be forces and moments measured by
 the force plates that simply come from the inertial effects of the motion. When
@@ -309,7 +323,7 @@ Location of of accels and markers should stay the same between unloaded and
 loaded trials, but position doesn't matter other wise.
 
 Record Module
--------------
+=============
 
 The record module in D-Flow allows one to sample any signal available in the
 D-Flow environment at the variable D-Flow sample rate which can vary from 0 to
@@ -343,7 +357,7 @@ occurrences are counted::
    # EVENT E occured 1 time
 
 Treadmill
-~~~~~~~~~
+---------
 
 The right and left belt speeds can be measured with the record module. You must
 select a check box in the treadmill module to ensure that the actual speed is
@@ -352,7 +366,7 @@ pitch angle nor the lateral position of the treadmill using the record module,
 it only records the desired (the input) to each.
 
 Meta Data
----------
+=========
 
 D-Flow does not have any way to store meta data with its output. This is
 unfortunate because the C3D format has full support for meta data. It is also
@@ -373,7 +387,7 @@ requirements.
 .. _YAML: http://en.wikipedia.org/wiki/YAML
 
 Basics
-~~~~~~
+------
 
 There are some standard meta data that should be collected with every trial.
 
@@ -402,6 +416,7 @@ There are some standard meta data that should be collected with every trial.
        pitch: True
        sway: True
        marker-set: full/lower/NA
+       dflow-version: 3.16.1
        hardware-settings:
           high-performance: True/False
        files:
@@ -487,6 +502,13 @@ trial
    marker-set
       A string that indicates the HBM marker set used during the trial
       [full|lower|NA].
+   dflow-version
+      This should be a string that matches the version of D-Flow used to record
+      the trial. This is required to deal with changes in D-Flow's output from
+      earlier versions we had.
+   cortex-version
+      This should be a string that matches the version of Cortex used to record
+      the trial.
    hardware-settings
       There are tons of settings for the hardware in both D-Flow, Cortex, and
       the other software in the system. We hope to save the settings from each
@@ -509,31 +531,8 @@ trial
       headers for that marker to ``T10.PosX``, ``T10.PosY``, and ``T10.PosZ``,
       respectively. This only works for header names that end in ``.Pos[XYZ]``.
 
-Units
-~~~~~
-
-The units of the measurements are not specified by D-Flow so they should be
-included in the meta data. Would be nice to take a regular expression or the
-explicit column name.
-
-::
-
-   units:
-       *.PosX: meters
-       *.PosY: meters
-       *.PosZ: meters
-       *.Ang: degrees
-       *.Mom: newton-meter
-       *.Pow: watts
-       L_*: newtons
-       R_*: newtons
-
-.. todo::
-
-   This can probably be hard coded because the units are always the same.
-
 Analog Channel Names
-~~~~~~~~~~~~~~~~~~~~
+--------------------
 
 Since D-Flow doesn't allow you to set the names of the analog channels in the
 mocap module, the meta data file should include mappings, so that useful
@@ -573,7 +572,7 @@ measurement names will be available for future use, for example::
 16 accelerometers in order starting at Channel13. EMG, X, Y, Z order
 
 Events
-~~~~~~
+------
 
 D-Flow doesn't allow you to define names to events and auto-names up to 6
 events A-F. You can specify an event name map that will be used to
@@ -586,7 +585,7 @@ automatically segment your data into more memorable names events::
           C: walking with lateral perturbations begins
 
 Usage
------
+=====
 
 The ``DFlowData`` class is used to post process data collected from the D-Flow
 mocap and record modules. It does these operations:
@@ -627,7 +626,7 @@ mocap and record modules. It does these operations:
 .. [#] Only outputs to tsv.
 
 Python API
-~~~~~~~~~~
+----------
 
 The ``DFlowData`` class gives a simple Python API for working with the
 D-Flow file outputs.
@@ -654,7 +653,7 @@ D-Flow file outputs.
    data.write_dflow_tsv('trial_01_clean.txt')
 
 Command Line
-~~~~~~~~~~~~
+------------
 
 The following command will load the three input files, clean up the data, and
 write the results to file, which can be loaded back into D-Flow or used in some

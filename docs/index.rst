@@ -4,10 +4,11 @@ Welcome to the Gait Analysis Tool Kit's documentation!
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
-   gaitanalysis
    motek
+   gait
+   gaitanalysis
 
 .. include:: ../README.rst
 

@@ -57,7 +57,7 @@ http://www.scipy.org/stackspec.html.
 We recommend installing Anaconda_ for users in our lab to get all of the
 dependencies.
 
-.. _Anaconda:: http://docs.continuum.io/anaconda/
+.. _Anaconda: http://docs.continuum.io/anaconda/
 
 We also utilize Octave/Matlab code, so an install of Octave with is also
 required. See http://octave.sourceforge.net/index.html for installation
