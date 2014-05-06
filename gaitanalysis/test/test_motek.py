@@ -321,6 +321,7 @@ class TestDFlowData():
                            'pitch': False,
                            'sway': True,
                            'marker-set': 'lower',
+                           'dflow-version': '3.16.1',
                            'files': {
                                      'mocap': path_to_mocap_data_file,
                                      'record': path_to_record_data_file,
@@ -413,7 +414,6 @@ class TestDFlowData():
         D-Flow for playback.
 
         """
-
         # This generates the slightly variable sampling periods seen in the
         # time stamp column.
         deviations = (self.dflow_mocap_max_period_deviation *
@@ -431,7 +431,7 @@ class TestDFlowData():
                                            self.cortex_number_of_samples, 1),
                       }
 
-        for label in self.mocap_labels_with_hbm[2:]: # skip TimeStamp & FrameNumber
+        for label in self.mocap_labels_with_hbm[2:]:  # skip TimeStamp & FrameNumber
             if label in self.delsys_labels:
                 mocap_data[label] = np.sin(mocap_data['TimeStamp'] -
                                            self.delsys_time_delay)
@@ -440,11 +440,17 @@ class TestDFlowData():
 
         self.mocap_data_frame = pandas.DataFrame(mocap_data)
 
+        # TODO : This adds missing values to the data that represents the
+        # output of D-Flow versions <= 3.16.1. But we need to also create
+        # some data created which represents the missing values as zeros for
+        # the newer D-Flow versions and test that as well.
+
         # Add "missing" values to the marker data.
         for j, index in enumerate(self.missing_marker_start_indices):
             for signal in (self.cortex_marker_labels +
-                self.compensation_treadmill_markers):
-                self.mocap_data_frame[signal][index:index + self.length_missing[j]] = \
+                           self.compensation_treadmill_markers):
+                s = self.mocap_data_frame[signal]
+                s[index:index + self.length_missing[j]] = \
                     self.mocap_data_frame[signal][index]
 
         self.mocap_data_frame.to_csv(self.path_to_mocap_data_file, sep='\t',
@@ -859,14 +865,42 @@ class TestDFlowData():
         dflow_data = DFlowData(self.path_to_mocap_data_file)
         mocap_data_frame = dflow_data._load_mocap_data(ignore_hbm=True)
         identified = dflow_data._identify_missing_markers(mocap_data_frame)
-        interpolated = dflow_data._interpolate_missing_markers(identified)
+        interpolated = spline_interpolate_over_missing(identified,
+                                                       'TimeStamp',
+                                                       columns=dflow_data.marker_column_labels)
 
         assert not pandas.isnull(interpolated).any().any()
 
         for label in (self.compensation_treadmill_markers +
-                self.cortex_marker_labels):
+                      self.cortex_marker_labels):
             testing.assert_allclose(interpolated[label].values,
-                    np.sin(interpolated['TimeStamp']).values, atol=1e-3)
+                                    np.sin(interpolated['TimeStamp']).values,
+                                    atol=1e-3)
+
+    def test_missing_markers_are_zeros(self):
+
+        # no meta data should return True
+        dflow_data = DFlowData(self.path_to_mocap_data_file)
+        assert dflow_data._missing_markers_are_zeros()
+
+        # meta data with dflow version less or equal to 3.16.1 should return
+        # False
+        dflow_data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
+                               meta_yml_path=self.path_to_meta_data_file)
+        assert not dflow_data._missing_markers_are_zeros()
+
+        # meta data with dflow version above 3.16.2rc4 should return True
+        dflow_data.meta['trial']['dflow-version'] = '3.16.3'
+        assert dflow_data._missing_markers_are_zeros()
+
+        # meta data with dflow version in between 3.16.1 and 3.16.1rc4 should
+        # return True
+        dflow_data.meta['trial']['dflow-version'] = '3.16.2rc1'
+        assert dflow_data._missing_markers_are_zeros()
+
+        # meta data without dflow version should return True
+        dflow_data.meta['trial'].pop('dflow-version', None)
+        assert dflow_data._missing_markers_are_zeros()
 
     def test_load_mocap_data(self):
         dflow_data = DFlowData(self.path_to_mocap_data_file)
@@ -975,7 +1009,7 @@ class TestDFlowData():
                          record_tsv_path=self.path_to_record_data_file,
                          meta_yml_path=self.path_to_meta_data_file)
 
-        data.clean_data()
+        data.clean_data(ignore_hbm=True)
 
         # TODO : Check for an events dictionary if the record file included
         # events.
@@ -999,7 +1033,7 @@ class TestDFlowData():
         # Without the record file.
         data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
                          meta_yml_path=self.path_to_meta_data_file)
-        data.clean_data()
+        data.clean_data(ignore_hbm=True)
 
         assert (data._marker_column_labels(data.mocap_column_labels) ==
                 self.all_marker_labels)
@@ -1022,7 +1056,7 @@ class TestDFlowData():
         # Without the mocap file.
         data = DFlowData(record_tsv_path=self.path_to_record_data_file,
                          meta_yml_path=self.path_to_meta_data_file)
-        data.clean_data()
+        data.clean_data(ignore_hbm=True)
 
         assert_raises(AttributeError, lambda: data.mocap_column_labels)
 
@@ -1047,7 +1081,7 @@ class TestDFlowData():
 
         # Without record file and meta data.
         data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file)
-        data.clean_data()
+        data.clean_data(ignore_hbm=True)
 
         assert (data._marker_column_labels(data.mocap_column_labels) ==
                 self.all_marker_labels)
@@ -1067,7 +1101,7 @@ class TestDFlowData():
 
         # Without mocap file and meta data.
         data = DFlowData(record_tsv_path=self.path_to_record_data_file)
-        data.clean_data()
+        data.clean_data(ignore_hbm=True)
 
         assert_raises(AttributeError, lambda: data.mocap_column_labels)
 
@@ -1085,18 +1119,41 @@ class TestDFlowData():
 
     def test_clean_data_options(self):
 
-        # Test if markers are interpolated.
-
         data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
                          record_tsv_path=self.path_to_record_data_file,
                          meta_yml_path=self.path_to_meta_data_file)
 
-        data.clean_data(interpolate_markers=True)
+        # Default options
+        data.clean_data()
 
+        # No nans should be present.
         assert not pandas.isnull(data.data).any().any()
+        # HBM columns should be present
+        assert 'RKneeFlexion.Ang' in data.data.columns
 
-        # test filter
-        # test interpolate hbm
+        # Don't identify missing markers or missing values in HBM data.
+        data.clean_data(id_na=False)
+
+        # No nans should be present.
+        assert not pandas.isnull(data.data).any().any()
+        # HBM columns should be present
+        assert 'RKneeFlexion.Ang' in data.data.columns
+
+        # Identify missing markers but don't interpolate.
+        data.clean_data(interpolate=False)
+
+        # Nans should be present.
+        assert pandas.isnull(data.data).any().any()
+        # HBM columns should be present
+        assert 'RKneeFlexion.Ang' in data.data.columns
+
+        # Don't load HBM data.
+        data.clean_data(ignore_hbm=True)
+
+        # Nans should not be present.
+        assert not pandas.isnull(data.data).any().any()
+        # HBM columns should be present
+        assert 'RKneeFlexion.Ang' not in data.data.columns
 
     def test_extract_processed_data(self):
         dflow_data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
