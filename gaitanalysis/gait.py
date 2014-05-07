@@ -360,9 +360,9 @@ class WalkingData(object):
 
         right_strikes, left_strikes, right_offs, left_offs = \
             func[method](time[self.min_idx:self.max_idx],
-                                    self.raw_data[right_vertical_signal_col_name].values[self.min_idx:self.max_idx],
-                                    self.raw_data[left_vertical_signal_col_name].values[self.min_idx:self.max_idx],
-                                    **kwargs)
+                         self.raw_data[right_vertical_signal_col_name].values[self.min_idx:self.max_idx],
+                         self.raw_data[left_vertical_signal_col_name].values[self.min_idx:self.max_idx],
+                         **kwargs)
 
         self.strikes = {}
         self.offs = {}
@@ -389,85 +389,132 @@ class WalkingData(object):
 
             self.plot_landmarks(col_names=right_col_names, side='right',
                                 num_steps_to_plot=num_steps_to_plot)
+
             self.plot_landmarks(col_names=left_col_names, side='left',
                                 num_steps_to_plot=num_steps_to_plot)
 
         return right_strikes, left_strikes, right_offs, left_offs
 
 
-    def plot_landmarks(self, col_names, side, event='both',
-                       num_steps_to_plot=None):
-        """
-        Creates a plot of the desired signal overlaid
+    def plot_landmarks(self, col_names, side, event='both', index=0,
+                       window=None, num_steps_to_plot=None):
+        """Creates a plot of the desired signal(s) with the gait event times
+        overlaid on top of the signal.
+
         Parameters
         ==========
-        time : array_like, shape(n,)
-            A monotonically increasing time array
-        col_names : list of strings
-            A variable number of strings naming the columns to plot
-        side : {right|left}
-        event : {heelstrikes|toeoffs|both|none}
+        col_names : sequence of strings
+            A variable number of strings naming the columns to plot.
+        side : string, {right|left}
+            Whether to plot the gait landmarks from the right or left leg.
+        event : string, {heelstrikes|toeoffs|both}
+            Which gait landmarks to plot.
+        index : integer, optional, default=0
+            The index of the first time sample in the plot. This is useful
+            if you want to plot the steps starting at an arbitrary point in
+            time in the data.
+        window : integer, optional, default=None
+            The number of time samples to plot. This is useful when a trial
+            has many steps and you only want to view some of them in the
+            plot.
+        num_steps_to_plot : integer, optional, default=None
+            This is an alternative way to specify the window. If this is
+            provided, the window argment is ignored and the window is
+            estimated by the desired number of steps.
 
         Returns
         =======
-        """
+        axes : matplotlib.Axes
+            The list of axes for the subplots or a single axes if only one
+            column was supplied. Same as `matplotlib.pyplot.subplots`
+            returns.
 
+        """
 
         if len(col_names) == 0:
             raise ValueError('Please supply some column names to plot.')
 
-        if event not in ['heelstrikes', 'toeoffs', 'both', 'none']:
+        if event not in ['heelstrikes', 'toeoffs', 'both']:
             raise ValueError('{} is not a valid event to plot'.format(event))
 
         if side != 'right' and side != 'left':
-            raise ValueError('Please indicate \'right\' or \'left\' side.')
-
-        foot_strikes = {'heelstrikes': self.strikes[side],
-                        'toeoffs': self.offs[side],
-                        'both': self.offs[side]}
-        if num_steps_to_plot is not None:
-            try:
-                xlimit = foot_strikes[event][num_steps_to_plot]
-            except IndexError:
-                raise IndexError('{} is not a valid number of steps to plot'.format(num_steps_to_plot))
-            except KeyError:
-                xlimit = foot_strikes['heelstrikes'][num_steps_to_plot]
-        else:
-            xlimit = time[self.max_idx]
-
-        time = self.raw_data.index.values.astype(float)
+            raise ValueError("Please indicate the 'right' or 'left' side.")
 
         fig, axes = plt.subplots(len(col_names), sharex=True)
 
-        fig.suptitle('{} Gait Events'.format(str.capitalize(side)))
+        time = self.raw_data.index.values.astype(float)
 
-        ones = np.array([1, 1])
+        if num_steps_to_plot is not None:
+            # Estimate number of samples in window from the first registered
+            # strikes. This ill always overwrite anything supplied for
+            # `window` by the user.
+            step_times = self.strikes['right'][:num_steps_to_plot + 1]
+            window = (np.argmin(np.abs(time - step_times[-1])) -
+                      np.argmin(np.abs(time - step_times[0])))
+
+        if window is None:
+            time_window = time[index:-1]
+        else:
+            time_window = time[index:index + window]
 
         for i, col_name in enumerate(col_names):
             try:
                 ax = axes[i]
-            except TypeError:
+            except TypeError:  # if only one column
                 ax = axes
 
-            ax.plot(time[self.min_idx:self.max_idx],
-                    self.raw_data[col_name].values[self.min_idx:self.max_idx])
+            signal = self.raw_data[col_name]
+            if window is None:
+                signal_window = signal[index:-1]
+            else:
+                signal_window = signal[index:index + window]
+
+            ax.plot(time_window, signal_window, label="_nolegend_")
+
+            heel_labels, toe_labels = [], []
+            heel_lines, toe_lines = [], []
 
             if event == 'heelstrikes' or event == 'both':
-                for strike in self.strikes[side]:
-                    ax.plot(strike*ones, ax.get_ylim(), 'r', label=side + ' heelstrikes')
+                idx_in_window = ((time_window[0] < self.strikes[side]) &
+                                 (self.strikes[side] < time_window[-1]))
+                strikes_in_window = self.strikes[side][idx_in_window]
+                heel_labels = (['Heel Strikes'] +
+                               (len(strikes_in_window) - 1) * ["_nolegend_"])
+                heel_lines = ax.plot(strikes_in_window *
+                                     np.ones((2, strikes_in_window.shape[0])),
+                                     ax.get_ylim(), 'r')
 
             if event == 'toeoffs' or event == 'both':
-                for off in self.offs[side]:
-                    ax.plot(off*ones, ax.get_ylim(), 'g', label=side + ' toeoffs')
+                idx_in_window = ((time_window[0] < self.offs[side]) &
+                                 (self.offs[side] < time_window[-1]))
+                offs_in_window = self.offs[side][idx_in_window]
+                toe_labels = (['Toe Offs'] + (len(offs_in_window) - 1) *
+                              ["_nolegend_"])
+                toe_lines = ax.plot(offs_in_window *
+                                    np.ones((2, offs_in_window.shape[0])),
+                                    ax.get_ylim(), 'g')
 
             ax.set_ylabel(col_name)
-            ax.set_xlim((time[self.min_idx], xlimit))
+            ax.set_xlim((time_window[0], time_window[-1]))
+            for line, label in zip(heel_lines + toe_lines,
+                                   heel_labels + toe_labels):
+                line.set_label(label)
+            ax.legend()
 
         # draw only on the last axes
         ax.set_xlabel('Time [s]')
 
-        return axes
+        title = '{} Gait Events:'.format(side.capitalize())
 
+        if event == 'heelstrikes' or event == 'both':
+            title += ' {} heel strikes'.format(len(strikes_in_window))
+
+        if event == 'toeoffs' or event == 'both':
+            title += ' {} toeoffs'.format(len(strikes_in_window))
+
+        fig.suptitle(title)
+
+        return axes
 
     def plot_steps(self, *col_names, **kwargs):
         """Plots the steps.
