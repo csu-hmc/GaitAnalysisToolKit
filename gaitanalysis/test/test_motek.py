@@ -36,42 +36,42 @@ def test_markers_for_2D_inverse_dynamics():
 
     lmark, rmark, lforce, rforce = markers_for_2D_inverse_dynamics()
 
-    expected_lmark = ['STRN.PosZ', 'STRN.PosY',
-                      'LGTRO.PosZ', 'LGTRO.PosY',
-                      'LLEK.PosZ', 'LLEK.PosY',
-                      'LLM.PosZ', 'LLM.PosY',
-                      'LHEE.PosZ', 'LHEE.PosY',
-                      'LMT5.PosZ', 'LMT5.PosY']
+    expected_lmark = ['STRN.PosX', 'STRN.PosY',
+                      'LGTRO.PosX', 'LGTRO.PosY',
+                      'LLEK.PosX', 'LLEK.PosY',
+                      'LLM.PosX', 'LLM.PosY',
+                      'LHEE.PosX', 'LHEE.PosY',
+                      'LMT5.PosX', 'LMT5.PosY']
 
     assert lmark == expected_lmark
 
-    expected_rmark = ['STRN.PosZ', 'STRN.PosY',
-                      'RGTRO.PosZ', 'RGTRO.PosY',
-                      'RLEK.PosZ', 'RLEK.PosY',
-                      'RLM.PosZ', 'RLM.PosY',
-                      'RHEE.PosZ', 'RHEE.PosY',
-                      'RMT5.PosZ', 'RMT5.PosY']
+    expected_rmark = ['STRN.PosX', 'STRN.PosY',
+                      'RGTRO.PosX', 'RGTRO.PosY',
+                      'RLEK.PosX', 'RLEK.PosY',
+                      'RLM.PosX', 'RLM.PosY',
+                      'RHEE.PosX', 'RHEE.PosY',
+                      'RMT5.PosX', 'RMT5.PosY']
 
     assert rmark == expected_rmark
 
-    assert lforce == ['FP1.ForZ', 'FP1.ForY', 'FP1.MomX']
-    assert rforce == ['FP2.ForZ', 'FP2.ForY', 'FP2.MomX']
+    assert lforce == ['FP1.ForX', 'FP1.ForY', 'FP1.MomZ']
+    assert rforce == ['FP2.ForX', 'FP2.ForY', 'FP2.MomZ']
 
     lmark, rmark, lforce, rforce = markers_for_2D_inverse_dynamics('full')
 
-    assert lmark == ['LSHO.PosZ', 'LSHO.PosY',
-                     'LGTRO.PosZ', 'LGTRO.PosY',
-                     'LLEK.PosZ', 'LLEK.PosY',
-                     'LLM.PosZ', 'LLM.PosY',
-                     'LHEE.PosZ', 'LHEE.PosY',
-                     'LMT5.PosZ', 'LMT5.PosY']
+    assert lmark == ['LSHO.PosX', 'LSHO.PosY',
+                     'LGTRO.PosX', 'LGTRO.PosY',
+                     'LLEK.PosX', 'LLEK.PosY',
+                     'LLM.PosX', 'LLM.PosY',
+                     'LHEE.PosX', 'LHEE.PosY',
+                     'LMT5.PosX', 'LMT5.PosY']
 
-    assert rmark == ['RSHO.PosZ', 'RSHO.PosY',
-                     'RGTRO.PosZ', 'RGTRO.PosY',
-                     'RLEK.PosZ', 'RLEK.PosY',
-                     'RLM.PosZ', 'RLM.PosY',
-                     'RHEE.PosZ', 'RHEE.PosY',
-                     'RMT5.PosZ', 'RMT5.PosY']
+    assert rmark == ['RSHO.PosX', 'RSHO.PosY',
+                     'RGTRO.PosX', 'RGTRO.PosY',
+                     'RLEK.PosX', 'RLEK.PosY',
+                     'RLM.PosX', 'RLM.PosY',
+                     'RHEE.PosX', 'RHEE.PosY',
+                     'RMT5.PosX', 'RMT5.PosY']
 
 
 class TestMissingMarkerIdentfier:
@@ -224,9 +224,12 @@ class TestDFlowData():
                             'T10.PosY',
                             'T10.PosZ']
 
-    cortex_force_labels = ['FP1.ForX', 'FP1.ForY', 'FP1.ForZ', 'FP1.MomX',
-                           'FP1.MomY', 'FP1.MomZ', 'FP2.ForX', 'FP2.ForY',
-                           'FP2.ForZ', 'FP2.MomX', 'FP2.MomY', 'FP2.MomZ']
+    cortex_force_labels = ['FP1.ForX', 'FP1.ForY', 'FP1.ForZ',
+                           'FP1.MomX', 'FP1.MomY', 'FP1.MomZ',
+                           'FP1.CopX', 'FP1.CopY', 'FP1.CopZ',
+                           'FP2.ForX', 'FP2.ForY', 'FP2.ForZ',
+                           'FP2.MomX', 'FP2.MomY', 'FP2.MomZ',
+                           'FP2.CopX', 'FP2.CopY', 'FP2.CopZ']
 
     cortex_analog_labels = ['Channel1.Anlg', 'Channel2.Anlg']
     relabeled_cortex_analog_labels = ["F1Y1", "F1Y2"]
@@ -743,6 +746,17 @@ class TestDFlowData():
         for label in emg_lab + accel_lab:
             assert label in self.delsys_labels
 
+    def test_force_column_labels(self):
+        dflow_data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
+                               meta_yml_path=self.path_to_meta_data_file)
+        force_plate_labels = dflow_data._force_column_labels(without_center_of_pressure=False)
+        assert sorted(self.cortex_force_labels) == sorted(force_plate_labels)
+
+        force_plate_labels = dflow_data._force_column_labels(without_center_of_pressure=True)
+        for label in force_plate_labels:
+            assert label in self.cortex_force_labels
+            assert 'Cop' not in label
+
     def test_relabel_analog_column(self):
 
         # Test if analog columns are relabeled to what is indicated in
@@ -1003,6 +1017,53 @@ class TestDFlowData():
         testing.assert_allclose(reoriented_data['Back_Right_AccZ'],
                 relabeled_data['Back_Right_AccX'])
 
+    def test_express(self):
+        data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
+                         record_tsv_path=self.path_to_record_data_file,
+                         meta_yml_path=self.path_to_meta_data_file)
+        data.clean_data()
+
+        x_motek_labels = ['T10.PosX', 'FP1.ForX', 'FP2.ForX', 'FP1.MomX',
+                          'FP2.MomX', 'FP1.CopX', 'FP2.CopX']
+        y_motek_labels = ['T10.PosY', 'FP1.ForY', 'FP2.ForY', 'FP1.MomY',
+                          'FP2.MomY', 'FP1.CopY', 'FP2.CopY']
+        z_motek_labels = ['T10.PosZ', 'FP1.ForZ', 'FP2.ForZ', 'FP1.MomZ',
+                          'FP2.MomZ', 'FP1.CopZ', 'FP2.CopZ']
+
+        # This changes the values in the data frame so that the columns are
+        # recognizable from each other.
+        changed = self.cortex_force_labels + self.all_marker_labels
+        data.data[changed] = \
+            np.random.random(len(changed)) * data.data[changed]
+
+        # The Motion Analysis reference frame is x to the right, y up, and z
+        # backwards. The ISB standard (Wu and Cavanagh 1995) is x forward, y
+        # up, and z to the right. The following rotation matrix can be
+        # multiplied by a vector expressed in the Motion Analysis
+        # reference frame to get the same vector expressed in the ISB
+        # standard frame (i.e. isb = R * motion analysis).
+
+        R = np.array([[0.0, 0.0, -1.0],
+                      [0.0, 1.0, 0.0],
+                      [1.0, 0.0, 0.0]])
+
+        # This should be a new data frame.
+        rotated = data._express(data.data, R)
+
+        for label in x_motek_labels:
+            testing.assert_allclose(data.data[label].values,
+                                    rotated[label[:-1] + 'Z'].values)
+
+        for label in y_motek_labels:
+            testing.assert_allclose(data.data[label].values,
+                                    rotated[label].values)
+
+        for label in z_motek_labels:
+            testing.assert_allclose(data.data[label].values,
+                                    -rotated[label[:-1] + 'X'].values)
+
+        rotated_to_standard = data._express_in_isb_standard_coordinates(data.data)
+        compare_data_frames(rotated_to_standard, rotated)
 
     def test_clean_data(self):
         data = DFlowData(mocap_tsv_path=self.path_to_mocap_data_file,
@@ -1179,6 +1240,11 @@ class TestDFlowData():
         timestamp_index_data_frame = \
             dflow_data.extract_processed_data(event='Zeroing',
                                               index_col='TimeStamp')
+
+        timestamp_index_data_frame = \
+            dflow_data.extract_processed_data(event='Zeroing',
+                                              index_col='TimeStamp',
+                                              isb_coordinates=True)
 
         # TODO : Make some assertions!
 

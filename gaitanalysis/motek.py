@@ -24,8 +24,8 @@ else:
 
 
 def markers_for_2D_inverse_dynamics(marker_set='lower'):
-    """Returns lists of markers from the D-Flow human body model (lower or
-    full), that should be used with leg2d.m.
+    """Returns lists of markers from the D-Flow human body model marker
+    protocol(lower or full), that should be used with leg2d.m.
 
     Parameters
     ----------
@@ -36,28 +36,36 @@ def markers_for_2D_inverse_dynamics(marker_set='lower'):
     Returns
     -------
     left_marker_coords : list of strings, len(12)
-        The Z and Y coordinates for the 6 left markers.
+        The X and Y coordinates for the 6 left markers.
     right_marker_coords : list of strings, len(12)
-        The Z and Y coordinates for the 6 right markers.
+        The X and Y coordinates for the 6 right markers.
     left_forces : list of strings, len(3)
-        The Z and Y ground reaction forces and the X ground reaction moment
+        The X and Y ground reaction forces and the Z ground reaction moment
         of the left leg.
     right_forces : list of strings, len(3)
-        The Z and Y ground reaction forces and the X ground reaction moment
+        The X and Y ground reaction forces and the Z ground reaction moment
         of the left leg.
 
     Notes
     -----
-    The are the correct markers to use in the 2D inverse dynamics
-    calculations and in the correct order but the signs must be changed for
-    the Z values when used:
+    The returned marker labels correspond to the ISB standard coordinate
+    system for gait, with X in the direction of travel, Y opposite to
+    gravity, and Z to the subject's right.
 
-    - The D-Flow X unit vector is equal to the leg2d Z unit vector.
-    - The D-Flow Y unit vector is equal to the leg2d Y unit vector.
-    - The D-FLow Z unit vector is equal to the leg2d -X unit vector.
+    D-Flow/Cortex output data (and marker labels) in a different coordinate
+    system and follow this conversion:
 
-    The forces and moments must be normalized by body mass before using with
-    leg2d.m.
+    - The D-Flow X unit vector is equal to the ISB Z unit vector.
+    - The D-Flow Y unit vector is equal to the ISB Y unit vector.
+    - The D-FLow Z unit vector is equal to the ISB -X unit vector.
+
+    So it is up to the user to ensure that the marker and force data that
+    corresponds to the returned labels is expressed in the ISB coordinate
+    frame before passing it into ``leg2d.m``. ``DFlowData`` has methods that
+    can express the data in the correct coordinate system on output.
+
+    The forces and moments must also be normalized by body mass before using
+    with ``leg2d.m``.
 
     """
 
@@ -78,13 +86,13 @@ def markers_for_2D_inverse_dynamics(marker_set='lower'):
     left_marker_coords = []
     right_marker_coords = []
     for ml, mr in zip(left_markers, right_markers):
-        left_marker_coords.append(ml + '.PosZ')
+        left_marker_coords.append(ml + '.PosX')
         left_marker_coords.append(ml + '.PosY')
-        right_marker_coords.append(mr + '.PosZ')
+        right_marker_coords.append(mr + '.PosX')
         right_marker_coords.append(mr + '.PosY')
 
-    left_forces = ['FP1.ForZ', 'FP1.ForY', 'FP1.MomX']
-    right_forces = ['FP2.ForZ', 'FP2.ForY', 'FP2.MomX']
+    left_forces = ['FP1.ForX', 'FP1.ForY', 'FP1.MomZ']
+    right_forces = ['FP2.ForX', 'FP2.ForY', 'FP2.MomZ']
 
     return left_marker_coords, right_marker_coords, left_forces, right_forces
 
@@ -707,7 +715,7 @@ class DFlowData(object):
         if without_center_of_pressure is True:
             f = lambda suffix: 'Cop' in suffix
         else:
-            f = lambda suffix: True
+            f = lambda suffix: False
 
         return [side + suffix for side in self.force_plate_names for suffix
                 in self.force_plate_suffix if not f(suffix)]
@@ -1279,6 +1287,109 @@ class DFlowData(object):
 
         return data_frame
 
+    def _express(self, data_frame, rotation_matrix):
+        """Returns a new data frame in which the marker, force, moment, and
+        center of pressure vectors are expressed in a different reference
+        frame using the provided rotation matrix.
+
+        Parameters
+        ----------
+        data_frame : pandas.DataFrame
+            A data frame which contains columns for the DFlow marker, force,
+            moment, and center of pressure outputs.
+        rotation_matrix : array_like, shape(3, 3)
+            A rotation matrix which will be premultiplied to all vectors in
+            the provided data frame.
+
+        Returns
+        -------
+        rotated_data_frame : pandas.DataFrame
+            A copy of the provided data frame in which all vectors are
+            expressed in a new reference frame.
+
+        Notes
+        -----
+        If v_df is a vector expressed in data frame's original coordinate
+        system and v_new is the same vector expressed in the desired
+        coordinate system, then:
+
+        v_new = rotation_matrix * v_df
+
+        This function does nothing with the segment columns. As it stands it
+        is not clear what the `.Rot[XYZ]` columns are so all segment columns
+        are left alone.
+
+        This function also does not currently deal with any human body model
+        columns, e.g. the center of mass.
+
+        """
+        # TODO : This doesn't fix any segment labels. No one uses the
+        # segment columns so this isn't a high priority at the moment.
+
+        # TODO : This needs to deal with the Human Body Model center of
+        # mass.
+
+        # TODO : This function could also be tailored to take a time series
+        # of rotation matrices which may be useful for the moving treadmill
+        # stuff. For example, the soder method produces a series of rotation
+        # matrices.
+
+        rotated_data_frame = data_frame.copy()
+
+        labels = (self.marker_column_labels +
+                  self._force_column_labels(without_center_of_pressure=False))
+
+        for label in labels:
+            if label.endswith('X'):
+                vector = data_frame[[label,
+                                     label[:-1] + 'Y',
+                                     label[:-1] + 'Z']]
+
+                rotated = np.dot(np.asarray(rotation_matrix), vector.T).T
+
+                rotated_data_frame[[label,
+                                    label[:-1] + 'Y',
+                                    label[:-1] + 'Z']] = rotated
+
+        return rotated_data_frame
+
+    def _express_in_isb_standard_coordinates(self, data_frame):
+        """Returns a new data frame in which the marker, force, moment, and
+        center of pressure vectors are expressed in the the ISB standard
+        coordinate system given in [Wu1995]_. This referene frame has the X
+        axis aligned in the directin of travel, the Y axis vertical and
+        opposite of gravity, and the Z axis to the right, following the
+        right hand rule.
+
+        Parameters
+        ----------
+        data_frame : pandas.DataFrame
+            A data frame which contains columns for the DFlow marker, force,
+            moment, and center of pressure outputs. The coordinate system
+            for the vectors must be the Cortex default system (X to the
+            right, Y up, Z backwards).
+
+        Returns
+        -------
+        rotated_data_frame : pandas.DataFrame
+            A copy of the provided data frame in which all vectors are
+            expressed in the ISB standard coordinate system.
+
+        Notes
+        -----
+        See `DflowData._express` for more details.
+
+        References
+        ----------
+        [1] Wu G. and Cavanagh, P. R., 1995, "ISB recommendations for
+        standardization in the reporting of kinematic data", J.
+        Biomechanics, Vol 28, No 10.
+        """
+        R = np.array([[0.0, 0.0, -1.0],
+                      [0.0, 1.0, 0.0],
+                      [1.0, 0.0, 0.0]])
+        return self._express(data_frame, R)
+
     def clean_data(self, ignore_hbm=False, id_na=True, interpolate=True,
                    interpolation_order=1):
         """Returns the processed, "cleaned", data.
@@ -1399,7 +1510,7 @@ class DFlowData(object):
 
         return data
 
-    def extract_processed_data(self, event=None, index_col=None):
+    def extract_processed_data(self, event=None, index_col=None, isb_coordinates=False):
         """Returns the processed data in a data frame. If an event name is
         provided, then a data frame with only that event is returned.
 
@@ -1413,6 +1524,10 @@ class DFlowData(object):
             A name of a column in the data frame. If provided the the column
             will be removed from the data frame and used as the index. This
             is useful for assigning one of the time columns as the index.
+        isb_coordinates : boolean, optional, default=False
+            If True, the marker, force, moment, and center of pressure
+            vectors will be expressed in the ISB standard coordinate system
+            instead of the Cortex default coordinate system.
 
         Returns
         -------
@@ -1445,6 +1560,9 @@ class DFlowData(object):
             data_frame = data_frame.copy()
             data_frame.index = data_frame[index_col]
             del data_frame[index_col]
+
+        if isb_coordinates is True:
+            data_frame = self._express_in_isb_standard_coordinates(data_frame)
 
         return data_frame
 
