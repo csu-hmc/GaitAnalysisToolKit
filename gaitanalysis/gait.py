@@ -397,7 +397,9 @@ class WalkingData(object):
 
 
     def plot_landmarks(self, col_names, side, event='both', index=0,
-                       window=None, num_steps_to_plot=None):
+                       window=None, num_steps_to_plot=None,
+                       curve_kwargs=None, heel_kwargs=None,
+                       toe_kwargs=None):
         """Creates a plot of the desired signal(s) with the gait event times
         overlaid on top of the signal.
 
@@ -407,7 +409,7 @@ class WalkingData(object):
             A variable number of strings naming the columns to plot.
         side : string, {right|left}
             Whether to plot the gait landmarks from the right or left leg.
-        event : string, {heelstrikes|toeoffs|both}
+        event : string, {heelstrikes|toeoffs|both|none}
             Which gait landmarks to plot.
         index : integer, optional, default=0
             The index of the first time sample in the plot. This is useful
@@ -421,6 +423,13 @@ class WalkingData(object):
             This is an alternative way to specify the window. If this is
             provided, the window argment is ignored and the window is
             estimated by the desired number of steps.
+        curve_kwargs : dictionary, optional
+            Valid matplotlib kwargs that will be used for the signal curves.
+        heel_kwargs : dictionary, optional
+            Valid matplotlib kwargs that will be used for the heel-strike
+            lines.
+        toe_kwargs : dictionary, optional
+            Valid matplotlib kwargs that will be used for the toe-off lines.
 
         Returns
         =======
@@ -429,16 +438,31 @@ class WalkingData(object):
             column was supplied. Same as `matplotlib.pyplot.subplots`
             returns.
 
+        Note
+        ====
+        The `index`, `window` and `num_steps_to_plot` arguments do not
+        simply set the x limit to bound the data of interest, they do not
+        plot any data outside the desired range (and is thus faster).
+
         """
 
         if len(col_names) == 0:
             raise ValueError('Please supply some column names to plot.')
 
-        if event not in ['heelstrikes', 'toeoffs', 'both']:
+        if event not in ['heelstrikes', 'toeoffs', 'both', 'none']:
             raise ValueError('{} is not a valid event to plot'.format(event))
 
         if side != 'right' and side != 'left':
             raise ValueError("Please indicate the 'right' or 'left' side.")
+
+        if curve_kwargs is None:
+            curve_kwargs = {'color': 'black'}
+
+        if heel_kwargs is None:
+            heel_kwargs = {'color': 'red'}
+
+        if toe_kwargs is None:
+            toe_kwargs = {'color': 'blue'}
 
         fig, axes = plt.subplots(len(col_names), sharex=True)
 
@@ -446,7 +470,7 @@ class WalkingData(object):
 
         if num_steps_to_plot is not None:
             # Estimate number of samples in window from the first registered
-            # strikes. This ill always overwrite anything supplied for
+            # strikes. This will always overwrite anything supplied for
             # `window` by the user.
             step_times = self.strikes['right'][:num_steps_to_plot + 1]
             window = (np.argmin(np.abs(time - step_times[-1])) -
@@ -469,7 +493,8 @@ class WalkingData(object):
             else:
                 signal_window = signal[index:index + window]
 
-            ax.plot(time_window, signal_window, label="_nolegend_")
+            ax.plot(time_window, signal_window, label="_nolegend_",
+                    **curve_kwargs)
 
             heel_labels, toe_labels = [], []
             heel_lines, toe_lines = [], []
@@ -482,7 +507,7 @@ class WalkingData(object):
                                (len(strikes_in_window) - 1) * ["_nolegend_"])
                 heel_lines = ax.plot(strikes_in_window *
                                      np.ones((2, strikes_in_window.shape[0])),
-                                     ax.get_ylim(), 'r')
+                                     ax.get_ylim(), **heel_kwargs)
 
             if event == 'toeoffs' or event == 'both':
                 idx_in_window = ((time_window[0] < self.offs[side]) &
@@ -492,27 +517,32 @@ class WalkingData(object):
                               ["_nolegend_"])
                 toe_lines = ax.plot(offs_in_window *
                                     np.ones((2, offs_in_window.shape[0])),
-                                    ax.get_ylim(), 'g')
+                                    ax.get_ylim(), **toe_kwargs)
 
             ax.set_ylabel(col_name)
             ax.set_xlim((time_window[0], time_window[-1]))
-            for line, label in zip(heel_lines + toe_lines,
-                                   heel_labels + toe_labels):
-                line.set_label(label)
-            ax.legend()
+            if event != 'none':
+                for line, label in zip(heel_lines + toe_lines,
+                                       heel_labels + toe_labels):
+                    line.set_label(label)
+                ax.legend()
 
         # draw only on the last axes
         ax.set_xlabel('Time [s]')
 
-        title = '{} Gait Events:'.format(side.capitalize())
+        if event != 'none':
+            title = '{} Gait Events:'.format(side.capitalize())
 
-        if event == 'heelstrikes' or event == 'both':
-            title += ' {} heel strikes'.format(len(strikes_in_window))
+            if event == 'heelstrikes' or event == 'both':
+                title += ' {} heel strikes'.format(len(strikes_in_window))
 
-        if event == 'toeoffs' or event == 'both':
-            title += ' {} toeoffs'.format(len(strikes_in_window))
+            if event == 'both':
+                title += ','
 
-        fig.suptitle(title)
+            if event == 'toeoffs' or event == 'both':
+                title += ' {} toeoffs'.format(len(strikes_in_window))
+
+            fig.suptitle(title)
 
         return axes
 
