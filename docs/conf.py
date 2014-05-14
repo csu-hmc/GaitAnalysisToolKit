@@ -30,39 +30,6 @@ from gaitanalysis import __version__
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.autosummary',
               'sphinx.ext.todo', 'numpydoc']
 
-# autodoc fails on readthedocs.org if the dependencies are not installed so
-# we mock them.
-on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
-
-if on_rtd:
-
-    class Mock(object):
-
-        __all__ = []
-
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def __call__(self, *args, **kwargs):
-            return Mock()
-
-        @classmethod
-        def __getattr__(cls, name):
-            if name in ('__file__', '__path__'):
-                return '/dev/null'
-            elif name[0] == name[0].upper():
-                mockType = type(name, (), {})
-                mockType.__module__ = __name__
-                return mockType
-            else:
-                return Mock()
-
-    MOCK_MODULES = ['numpy', 'scipy', 'matplotlib', 'pandas',
-                    'DynamicistToolKit', 'oct2py']
-
-    for mod_name in MOCK_MODULES:
-        sys.modules[mod_name] = Mock()
-
 # Get rid of warnings:
 # http://stackoverflow.com/questions/12206334/sphinx-autosummary-toctree-contains-reference-to-nonexisting-document-warnings
 numpydoc_show_class_members = False
