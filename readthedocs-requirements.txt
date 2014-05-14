@@ -1,1 +1,8 @@
 numpydoc>=0.4
+numpy
+scipy
+matplotlib
+pandas
+pyyaml
+DynamicistToolKit
+oct2py==1.2.0

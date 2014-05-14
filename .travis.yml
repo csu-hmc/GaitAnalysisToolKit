@@ -11,8 +11,6 @@ before_install:
   - pip install pandas==0.12.0 pyyaml oct2py==1.2.0 DynamicistToolKit
   - pip freeze
 install:
-  # DynamicistToolKit is pulled in during the following command, instead of
-  # being preinstalled like the other dependencies.
   - python setup.py install
 script: nosetests -v --with-coverage --cover-package=gaitanalysis
 after_success: coveralls
