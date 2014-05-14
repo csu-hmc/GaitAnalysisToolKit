@@ -1,3 +1,4 @@
 Jason K. Moore <moorepants@gmail.com>
-Sandra K. Hnat <>
-Ton van den Bogert <>
+Sandra K. Hnat <s.hnat@vikes.csuohio.edu>
+Ton van den Bogert <a.vandenbogert@csuohio.edu>
+Obinna Nwanna <obinna.nwanna@case.edu>
