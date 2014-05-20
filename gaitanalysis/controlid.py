@@ -397,6 +397,8 @@ class SimpleControlSolver(object):
 
             A = A[:, x_total]
 
+        # TODO : Matrix rank computations for large A matrices can take
+        # quite some time.
         rank_of_A = np.linalg.matrix_rank(A)
         if rank_of_A < A.shape[1] or rank_of_A > A.shape[0]:
             warnings.warn('The rank of A is {} and x is of length {}.'.format(
@@ -443,7 +445,7 @@ class SimpleControlSolver(object):
 
         return sensor_vectors
 
-    def least_squares(self, A, b):
+    def least_squares(self, A, b, ignore_cov=False):
         """Returns the solution to the linear least squares and the
         covariance matrix of the solution.
 
@@ -453,6 +455,11 @@ class SimpleControlSolver(object):
             The coefficient matrix of Ax = b.
         b : array_like, shape(n,)
             The right hand side of Ax = b.
+        ignore_cov: boolean, optional, default=False
+            The covariance computation for a very large A matrix can be
+            extremely slow. If this is set to True, then the computation is
+            skipped and the covariance of the identified parameters is set
+            to zero.
 
         Returns
         =======
@@ -489,8 +496,13 @@ class SimpleControlSolver(object):
                 warnings.warn('The rank of A is {} and the shape is {}.'.format(
                     rank, A.shape))
 
-        variance, covariance = \
-            process.least_squares_variance(A, sum_of_residuals)
+        if ignore_cov is True:
+            degrees_of_freedom = (A.shape[0] - A.shape[1])
+            variance = sum_of_residuals / degrees_of_freedom
+            covariance = np.zeros((len(x), len(x)))
+        else:
+            variance, covariance = \
+                process.least_squares_variance(A, sum_of_residuals)
 
         return x, variance, covariance
 
@@ -704,7 +716,8 @@ class SimpleControlSolver(object):
 
         return axes
 
-    def solve(self, sparse_a=False, gain_omission_matrix=None):
+    def solve(self, sparse_a=False, gain_omission_matrix=None,
+              ignore_cov=False):
         """Returns the estimated gains and sensor limit cycles along with
         their variance.
 
@@ -717,6 +730,11 @@ class SimpleControlSolver(object):
             A matrix which is the same shape as the identified gain matrices
             which has False in place of gains that should be assumed to be
             zero and True for gains that should be identified.
+        ignore_cov: boolean, optional, default=False
+            The covariance computation for a very large A matrix can be
+            extremely slow. If this is set to True, then the computation is
+            skipped and the covariance of the identified parameters is set
+            to zero.
 
         Returns
         =======
@@ -746,7 +764,8 @@ class SimpleControlSolver(object):
         if sparse_a is True:
             A = sparse.csr_matrix(A)
 
-        x, variance, covariance = self.least_squares(A, b)
+        x, variance, covariance = \
+            self.least_squares(A, b, ignore_cov=ignore_cov)
 
         deconstructed_solution = self.deconstruct_solution(x, covariance)
 

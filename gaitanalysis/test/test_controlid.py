@@ -184,6 +184,11 @@ class TestSimpleControlSolver():
                 expected_x = np.hstack((self.K[i].flatten(), self.m_star[i]))
         testing.assert_allclose(x, expected_x, atol=1e-10)
 
+        x, variance, covariance = \
+            self.solver.least_squares(A, b, ignore_cov=True)
+
+        assert (covariance == 0.0).all()
+
         self.solver.gain_omission_matrix = self.gain_omission_matrix
         A, b = self.solver.form_a_b()
         x, variance, covariance = self.solver.least_squares(A, b)
