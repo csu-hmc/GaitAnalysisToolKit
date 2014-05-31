@@ -560,52 +560,7 @@ class WalkingData(object):
             Any extra kwargs to pass to the matplotlib plot command.
 
         """
-
-        if len(col_names) == 0:
-            raise ValueError('Please supply some column names to plot.')
-
-        try:
-            mean = kwargs.pop('mean')
-        except KeyError:
-            mean = False
-
-        fig, axes = plt.subplots(len(col_names), sharex=True)
-
-        if mean is True:
-            fig.suptitle('Mean and standard deviation of ' +
-                         '{} steps.'.format(self.steps.shape[0]))
-            mean_of_steps = self.steps.mean(axis='items')
-            std_of_steps = self.steps.std(axis='items')
-        else:
-            fig.suptitle('Gait cycle for ' +
-                         '{} steps.'.format(self.steps.shape[0]))
-
-        for i, col_name in enumerate(col_names):
-            try:
-                ax = axes[i]
-            except TypeError:
-                ax = axes
-            if mean is True:
-                ax.fill_between(mean_of_steps.index.values.astype(float),
-                                (mean_of_steps[col_name] -
-                                    std_of_steps[col_name]).values,
-                                (mean_of_steps[col_name] +
-                                    std_of_steps[col_name]).values,
-                                alpha=0.5)
-                ax.plot(mean_of_steps.index.values.astype(float),
-                        mean_of_steps[col_name].values, marker='o')
-            else:
-                for key, value in self.steps.iteritems():
-                    ax.plot(value[col_name].index, value[col_name], **kwargs)
-
-            ax.xaxis.set_major_formatter(_percent_formatter)
-
-            ax.set_ylabel(col_name)
-
-        # plot only on the last axes
-        ax.set_xlabel('Time [s]')
-
-        return axes
+        return plot_steps(self.steps, *col_names, **kwargs)
 
     def split_at(self, side, section='both', num_samples=None,
                  belt_speed_column=None):
@@ -994,3 +949,68 @@ def gait_landmarks_from_accel(time, right_accel, left_accel, threshold=0.33, **k
         determine_foot_event(left_spikes)
 
     return right_foot_strikes, left_foot_strikes, right_toe_offs, left_toe_offs
+
+
+def plot_steps(steps, *col_names, **kwargs):
+    """Plots the steps.
+
+    Parameters
+    ==========
+    steps : pandas.Panel
+        If a panel of gait cycles is provided, then it will be plotted
+        as opposed to the gait cycles stored in `self.steps`.
+    col_names : string
+        A variable number of strings naming the columns to plot.
+    mean : boolean, optional, default=False
+        If true the mean and standard deviation of the steps will be
+        plotted.
+    kwargs : key value pairs
+        Any extra kwargs to pass to the matplotlib plot command.
+
+    """
+
+    if len(col_names) == 0:
+        raise ValueError('Please supply some column names to plot.')
+
+    try:
+        mean = kwargs.pop('mean')
+    except KeyError:
+        mean = False
+
+    fig, axes = plt.subplots(len(col_names), sharex=True)
+
+    if mean is True:
+        fig.suptitle('Mean and standard deviation of ' +
+                     '{} gait cycles.'.format(steps.shape[0]))
+        mean_of_steps = steps.mean(axis='items')
+        std_of_steps = steps.std(axis='items')
+    else:
+        fig.suptitle('Gait cycles for ' +
+                     '{} steps.'.format(steps.shape[0]))
+
+    for i, col_name in enumerate(col_names):
+        try:
+            ax = axes[i]
+        except TypeError:
+            ax = axes
+        if mean is True:
+            ax.fill_between(mean_of_steps.index.values.astype(float),
+                            (mean_of_steps[col_name] -
+                                std_of_steps[col_name]).values,
+                            (mean_of_steps[col_name] +
+                                std_of_steps[col_name]).values,
+                            alpha=0.5)
+            ax.plot(mean_of_steps.index.values.astype(float),
+                    mean_of_steps[col_name].values, marker='o')
+        else:
+            for key, value in steps.iteritems():
+                ax.plot(value[col_name].index, value[col_name], **kwargs)
+
+        ax.xaxis.set_major_formatter(_percent_formatter)
+
+        ax.set_ylabel(col_name)
+
+    # plot only on the last axes
+    ax.set_xlabel('Percent of Gait Cycle [%]')
+
+    return axes
