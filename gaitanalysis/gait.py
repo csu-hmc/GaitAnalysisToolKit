@@ -706,7 +706,7 @@ class WalkingData(object):
         for col_name, new_col_name in zip(col_names, new_col_names):
             self.raw_data[new_col_name] = \
                 process.derivative(self.raw_data.index.values.astype(float),
-                                   self.raw_data[col_name],
+                                   self.raw_data[col_name].values,
                                    method='combination')
 
     def save(self, filename):
