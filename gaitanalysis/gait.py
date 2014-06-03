@@ -977,7 +977,24 @@ def plot_steps(steps, *col_names, **kwargs):
     except KeyError:
         mean = False
 
-    fig, axes = plt.subplots(len(col_names), sharex=True)
+    try:
+        axes = kwargs.pop('axes')
+        fig = plt.gcf()
+    except KeyError:
+        axes = None
+
+    try:
+        marker = kwargs.pop('marker')
+    except KeyError:
+        marker = 'o'
+
+    try:
+        alpha = kwargs.pop('alpha')
+    except KeyError:
+        alpha = 0.5
+
+    if axes is None:
+        fig, axes = plt.subplots(len(col_names), sharex=True)
 
     if mean is True:
         fig.suptitle('Mean and standard deviation of ' +
@@ -999,9 +1016,9 @@ def plot_steps(steps, *col_names, **kwargs):
                                 std_of_steps[col_name]).values,
                             (mean_of_steps[col_name] +
                                 std_of_steps[col_name]).values,
-                            alpha=0.5)
+                            alpha=alpha, **kwargs)
             ax.plot(mean_of_steps.index.values.astype(float),
-                    mean_of_steps[col_name].values, marker='o')
+                    mean_of_steps[col_name].values, marker=marker, **kwargs)
         else:
             for key, value in steps.iteritems():
                 ax.plot(value[col_name].index, value[col_name], **kwargs)
