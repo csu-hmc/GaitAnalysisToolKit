@@ -1,4 +1,4 @@
-include gaitanalysis/test/data/*
+include gaitanalysis/tests/data/*
 include docs/*.rst
 include docs/Makefile
 include docs/conf.py
