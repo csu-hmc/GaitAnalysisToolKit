@@ -14,37 +14,48 @@ independently.
 Python Packages
 ===============
 
-gaitanalysis
-------------
+The main Python package is ``gaitanalysis`` and it contains five modules listed
+below. ``oct2py`` is used to call Octave routines in the Python code where
+needed.
 
-**gait**
-   General tools for working with gait data.
-**motek**
-   Tools for processing data from Motek Medical's products, primarily the
-   D-Flow software outputs.
-**controlid**
-   Tools for identifying control systems in human locomotion.
+``gait.py``
+   General tools for working with gait data such as gait landmark
+   identification and 2D inverse dynamics. The main class is ``WalkingData``.
+``controlid.py``
+   Tools for identifying control mechanisms in human locomotion.
+``markers.py``
+   Routines for processing marker data.
+``motek.py``
+   Tools for processing and cleaning data from `Motek Medical`_'s products,
+   e.g. the D-Flow software outputs.
+``utils.py``
+   Helper functions for the other modules.
 
-gaitanalysis/tests
-------------------
+.. _Motek Medical: http://www.motekmedical.com
 
-**test_gait**
-   Unit tests for the gait module.
-**test_motek**
-   Unit tests for the motek module.
-**test_controlid**
-   Unit tests for the controlid module.
+Each module has a corresponding test module in ``gaitanalysis/tests``
+sub-package which contain unit tests for the classes and functions in the
+respective module.
 
 Octave/Matlab Librarys
 ======================
 
-**2D Lower Body Inverse Dynamics**
+Several Octave/Matlab routines are included in the ``Octave-Matalb-Codes``
+directory.
+
+``2D-Inverse-Dynamics``
    Implements joint angle and moment computations of a 2D lower body human.
-**Inertial Compensation**
+``Inertial-Compensation``
    Compensates force plate forces and moments for inertial effects and
    re-expresses the forces and moments in the camera reference frame.
-**soder**
+``mmat``
+   Fast matrix multiplication.
+``soder``
    Computes the rigid body orientation and location of a group of markers.
+``Time-Delay``
+   Deals with the analog signal time delays.
+``VGait-Input-Signals``
+   Simulink models for generating random input signals.
 
 Installation
 ============
@@ -182,7 +193,7 @@ Once tests pass, add any new files you created::
 
 Now commit your changes::
 
-   git commit -am "Added an amazing new feature
+   git commit -am "Added an amazing new feature."
 
 Push your commits to a mirrored branch on the Github repository that you
 cloned::
