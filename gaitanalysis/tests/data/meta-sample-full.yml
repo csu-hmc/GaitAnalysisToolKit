@@ -1,0 +1,67 @@
+study:
+        id: 58
+        name: Gait Control Identification
+        description: Perturb the subject during walking and running.
+subject:
+        id: 567
+        age: 28
+        mass: 70.1
+        mass-units: kilograms
+        height: 1.82
+        height-units: meters
+        gender: male
+trial:
+        id: 1
+        subject-id: 567
+        datetime: 2013-12-03 05:06:00
+        notes: |
+                This trial was the best ever! Mom, can we do it again?
+                How about next Wednesday?
+        nominal-speed: 2.3
+        nominal-speed: meters per second
+        stationary-platform: False
+        pitch: False
+        sway: True
+        marker-set: lower
+        hardware-settings:
+                high-performance: True
+        analog-channel-map:
+                Channel1.Anlg: F1Y1
+                Channel2.Anlg: F1Y2
+                Channel3.Anlg: F1Y3
+                Channel4.Anlg: F1X1
+                Channel5.Anlg: F1X2
+                Channel6.Anlg: F1Z1
+                Channel7.Anlg: F2Y1
+                Channel8.Anlg: F2Y2
+                Channel9.Anlg: F2Y3
+                Channel10.Anlg: F2X1
+                Channel11.Anlg: F2X2
+                Channel12.Anlg: F2Z1
+                Channel13.Anlg: Front_Left_EMG
+                Channel14.Anlg: Front_Left_AccX
+                Channel15.Anlg: Front_Left_AccY
+                Channel16.Anlg: Front_Left_AccZ
+                Channel17.Anlg: Back_Left_EMG
+                Channel18.Anlg: Back_Left_AccX
+                Channel19.Anlg: Back_Left_AccY
+                Channel20.Anlg: Back_Left_AccZ
+                Channel21.Anlg: Front_Right_EMG
+                Channel22.Anlg: Front_Right_AccX
+                Channel23.Anlg: Front_Right_AccY
+                Channel24.Anlg: Front_Right_AccZ
+                Channel25.Anlg: Back_Right_EMG
+                Channel26.Anlg: Back_Right_AccX
+                Channel27.Anlg: Back_Right_AccY
+                Channel28.Anlg: Back_Right_AccZ
+        event:
+                A: force plate zeroing begins
+                B: walking begins
+                C: walking with lateral perturbations begins
+        files:
+                compensation: ../T002/mocap-module-002.txt
+                mocap: mocap-module-001.txt
+                record: record-module-001.txt
+                cortex: cortex-001.cap
+                mox: gait-001.mox
+                meta: meta-001.yml
