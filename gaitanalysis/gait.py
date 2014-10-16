@@ -24,7 +24,7 @@ else:
     set_trace = Tracer()
 
 
-def find_constant_speed(time, speed, plot=False):
+def find_constant_speed(time, speed, plot=False, filter_cutoff=1.0):
     """Returns the indice at which the treadmill speed becomes constant and
     the time series when the treadmill speed is constant.
 
@@ -37,6 +37,8 @@ def find_constant_speed(time, speed, plot=False):
         stablize at a speed.
     plot : boolean, optional
         If true a plot will be displayed with the results.
+    filter_cutoff : float, optional
+        The filter cutoff frequency for filtering the speed in Hertz.
 
     Returns
     =======
@@ -49,7 +51,7 @@ def find_constant_speed(time, speed, plot=False):
 
     sample_rate = 1.0 / (time[1] - time[0])
 
-    filtered_speed = process.butterworth(speed, 3.0, sample_rate)
+    filtered_speed = process.butterworth(speed, filter_cutoff, sample_rate)
 
     acceleration = np.hstack((0.0, np.diff(filtered_speed)))
 

@@ -8,7 +8,7 @@ before_install:
   - sudo apt-add-repository -y ppa:octave/stable
   - sudo apt-get update
   - sudo apt-get install -y -qq python-setuptools python-numpy python-scipy python-matplotlib python-tables python-nose python-coverage octave
-  - pip install pandas==0.12.0 pyyaml oct2py==1.2.0 DynamicistToolKit==0.3.2
+  - pip install pandas==0.12.0 pyyaml oct2py==1.2.0 DynamicistToolKit==0.3.5
   - pip freeze
 install:
   - python setup.py install
