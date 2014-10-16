@@ -9,11 +9,11 @@ description = \
     """Various tools for gait analysis used at the Cleveland State
 University Human Motion and Control Lab."""
 
-setup(name='Gait-Analysis-Toolkit',
+setup(name='GaitAnalysisToolKit',
       author='Jason K. Moore',
       author_email='moorepants@gmail.com',
       version=__version__,
-      url="http://github.com/csu-hmc/Gait-Analysis-Toolkit",
+      url="http://github.com/csu-hmc/GaitAnalysisToolKit",
       description=description,
       license='LICENSE.txt',
       packages=find_packages(),

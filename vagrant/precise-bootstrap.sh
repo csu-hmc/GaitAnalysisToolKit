@@ -29,8 +29,8 @@ make html
 # Test and install HEAD of master branch pulled from Github
 apt-get install -y git
 cd $HOME
-git clone https://github.com/csu-hmc/Gait-Analysis-Toolkit.git
-cd Gait-Analysis-Toolkit
+git clone https://github.com/csu-hmc/GaitAnalysisToolKit.git
+cd GaitAnalysisToolKit
 nosetests -v --with-coverage --cover-package=gaitanalysis
 python setup.py install
 cd docs
