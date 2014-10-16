@@ -179,7 +179,8 @@ def test_low_pass_filter():
                            'C': high_freq,
                            'D': low_freq + high_freq})
 
-    filtered = low_pass_filter(df, ['A', 'D'], 125.0, sample_rate)
+    filtered = low_pass_filter(df, ['A', 'D'], 125.0, sample_rate, order=8,
+                               padlen=150)
 
     testing.assert_allclose(filtered['T'].values, time)
     testing.assert_allclose(filtered['B'].values, low_freq)
@@ -192,14 +193,14 @@ def test_low_pass_filter():
     if current >= nine and current < ten:
         # SciPy 0.9.0 can't handle the end points.
         testing.assert_allclose(filtered['A'].values[50:-50],
-                                low_freq[50:-50], rtol=0.2, atol=0.01)
+                                low_freq[50:-50], rtol=0.01, atol=0.01)
         testing.assert_allclose(filtered['D'].values[50:-50],
-                                low_freq[50:-50], rtol=0.2, atol=0.01)
+                                low_freq[50:-50], rtol=0.01, atol=0.01)
     else:
-        testing.assert_allclose(filtered['A'].values, low_freq, rtol=0.2,
-                                atol=0.2)
-        testing.assert_allclose(filtered['D'].values, low_freq, rtol=0.2,
-                                atol=0.2)
+        testing.assert_allclose(filtered['A'].values, low_freq, rtol=1e-5,
+                                atol=1e-5)
+        testing.assert_allclose(filtered['D'].values, low_freq, rtol=1e-5,
+                                atol=1e-5)
 
 
 class TestDFlowData():

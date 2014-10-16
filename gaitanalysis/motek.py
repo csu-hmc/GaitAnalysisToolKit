@@ -265,7 +265,7 @@ def spline_interpolate_over_missing(data_frame, abscissa_column, order=1,
     return data_frame
 
 
-def low_pass_filter(data_frame, columns, cutoff, sample_rate):
+def low_pass_filter(data_frame, columns, cutoff, sample_rate, **kwargs):
     """Returns the data frame with indicated columns filtered with a low
     pass second order forward/backward Butterworth filter.
 
@@ -279,6 +279,8 @@ def low_pass_filter(data_frame, columns, cutoff, sample_rate):
         The low pass cutoff frequency in Hz.
     sample_rate : float
         The sample rate of the time series in Hz.
+    kwargs : key value pairs
+        Any addition keyword arguments to pass to dtk.process.butterworth.
 
     Returns
     -------
@@ -287,9 +289,11 @@ def low_pass_filter(data_frame, columns, cutoff, sample_rate):
         replaced by filtered versions.
 
     """
+    if 'axis' not in kwargs:
+        kwargs['axis'] = 0
 
     data_frame[columns] = process.butterworth(data_frame[columns].values,
-                                              cutoff, sample_rate, axis=0)
+                                              cutoff, sample_rate, **kwargs)
     return data_frame
 
 

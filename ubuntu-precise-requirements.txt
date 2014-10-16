@@ -7,7 +7,7 @@ matplotlib==1.1.1
 nose==1.1.2
 numpy==1.6.1
 numpydoc==0.4
-oct2py=1.1.1
+oct2py=1.2.0
 # pandas 0.7.0 is the default in precise, major upgrade needed
 pandas==0.12.0
 scipy==0.9.0
