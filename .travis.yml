@@ -10,6 +10,7 @@ before_install:
   - sudo apt-get install -y -qq python-setuptools python-numpy python-scipy python-matplotlib python-tables python-nose python-coverage octave
   - pip install pandas==0.12.0 pyyaml oct2py==1.2.0 DynamicistToolKit==0.3.5
   - pip freeze
+  - octave --version
 install:
   - python setup.py install
 script: nosetests -v --with-coverage --cover-package=gaitanalysis
