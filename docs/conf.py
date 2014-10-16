@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Gait-Analysis-Toolkit documentation build configuration file, created by
+# GaitAnalysisToolKit documentation build configuration file, created by
 # sphinx-quickstart on Mon Jul 11 12:40:21 2011.
 #
 # This file is execfile()d with the current directory set to its containing dir.
@@ -49,7 +49,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Gait-Analysis-Toolkit'
+project = u'GaitAnalysisToolKit'
 copyright = u'2013, Jason K. Moore'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -173,7 +173,7 @@ html_static_path = ['_static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'Gait-Analysis-Toolkitdoc'
+htmlhelp_basename = 'GaitAnalysisToolKitdoc'
 
 
 # -- Options for LaTeX output --------------------------------------------------
@@ -187,7 +187,7 @@ htmlhelp_basename = 'Gait-Analysis-Toolkitdoc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'Gait-Analysis-Toolkit.tex', u'Gait-Analysis-Toolkit Documentation',
+  ('index', 'GaitAnalysisToolKit.tex', u'GaitAnalysisToolKit Documentation',
    u'Jason K. Moore', 'manual'),
 ]
 
@@ -220,6 +220,6 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'gaitanalysistoolkit', u'Gait-Analysis-Toolkit Documentation',
+    ('index', 'gaitanalysistoolkit', u'GaitAnalysisToolKit Documentation',
      [u'Jason K. Moore'], 1)
 ]

@@ -8,8 +8,8 @@ relatively modular so you can use what you want. It is primarily structured as
 a Python distribution but the Octave/Matlab files are also accessible
 independently.
 
-.. image:: https://travis-ci.org/csu-hmc/Gait-Analysis-Toolkit.png?branch=master
-   :target: http://travis-ci.org/csu-hmc/Gait-Analysis-Toolkit
+.. image:: https://travis-ci.org/csu-hmc/GaitAnalysisToolKit.png?branch=master
+   :target: http://travis-ci.org/csu-hmc/GaitAnalysisToolKit
 
 Python Packages
 ===============
@@ -88,20 +88,20 @@ instructions.
 You can install using pip (or easy_install). Pip will theoretically [#]_ get
 the dependencies for you (or at least check if you have them)::
 
-   $ pip install https://github.com/csu-hmc/Gait-Analysis-Toolkit/zipball/master
+   $ pip install https://github.com/csu-hmc/GaitAnalysisToolKit/zipball/master
 
 Or download the source with your preferred method and install manually.
 
 Using Git::
 
-   $ git clone git@github.com:csu-hmc/Gait-Analysis-Toolkit.git
-   $ cd Gait-Analysis-Toolkit
+   $ git clone git@github.com:csu-hmc/GaitAnalysisToolKit.git
+   $ cd GaitAnalysisToolKit
 
 Or wget::
 
-   $ wget https://github.com/csu-hmc/Gait-Analysis-Toolkit/archive/master.zip
+   $ wget https://github.com/csu-hmc/GaitAnalysisToolKit/archive/master.zip
    $ unzip master.zip
-   $ cd Gait-Analysis-Toolkit-master
+   $ cd GaitAnalysisToolKit-master
 
 Then for basic installation::
 
@@ -158,16 +158,16 @@ If you have don't have access rights to this repository then you should fork
 the repository on Github using the Github UI and clone the fork that you just
 made to your machine::
 
-   git clone git@github.com:<your-username>/Gait-Analysis-Toolkit.git
+   git clone git@github.com:<your-username>/GaitAnalysisToolKit.git
 
 Change into the directory::
 
-   cd Gait-Analysis-Toolkit
+   cd GaitAnalysisToolKit
 
 Now, setup a remote called ``upstream`` that points to the main repository so
 that you can keep your local repository up-to-date::
 
-   git remote add upstream git@github.com:csu-hmc/Gait-Analysis-Toolkit.git
+   git remote add upstream git@github.com:csu-hmc/GaitAnalysisToolKit.git
 
 Now you have a remote called ``origin`` (the default) which points to **your**
 Github account's copy and a remote called ``upstream`` that points to the main
@@ -183,11 +183,11 @@ master branch simply::
 If you have access rights to the main repository simply, clone it and don't
 worry about making a fork on your Github account::
 
-   git clone git@github.com:csu-hmc/Gait-Analysis-Toolkit.git
+   git clone git@github.com:csu-hmc/GaitAnalysisToolKit.git
 
 Change into the directory::
 
-   cd Gait-Analysis-Toolkit
+   cd GaitAnalysisToolKit
 
 Now, to contribute a change to the repository you should create a new branch
 off of the local master branch::
