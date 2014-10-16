@@ -130,7 +130,8 @@ A vagrant file and provisioning script are included to test the code on both a
 Ubuntu 12.04 and Ubuntu 13.10 box. To load the box and run the tests simply
 type::
 
-  $ vagrant up
+   $ cd vagrant
+   $ vagrant up
 
 See ``VagrantFile`` and the ``*bootstrap.sh`` files to see what's going on.
 
