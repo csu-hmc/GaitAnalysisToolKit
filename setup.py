@@ -3,7 +3,7 @@
 
 from setuptools import setup, find_packages
 
-from gaitanalysis import __version__
+exec(open('gaitanalysis/version.py').read())
 
 description = \
     """Various tools for gait analysis used at the Cleveland State
