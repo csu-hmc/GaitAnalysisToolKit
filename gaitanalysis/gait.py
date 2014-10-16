@@ -207,8 +207,7 @@ class WalkingData(object):
         """
         this_files_dir = os.path.split(__file__)[0]
         m_file_directory = os.path.abspath(os.path.join(this_files_dir,
-                                                        '..',
-                                                        'Octave-Matlab-Codes',
+                                                        'octave',
                                                         '2D-Inverse-Dynamics'))
         octave.addpath(m_file_directory)
 

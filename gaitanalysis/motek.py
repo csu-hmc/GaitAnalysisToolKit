@@ -1095,8 +1095,7 @@ class DFlowData(object):
         # reference frame for ease of future computations.
 
         mfile = os.path.abspath(os.path.join(os.path.split(__file__)[0],
-                                             '..', 'Octave-Matlab-Codes',
-                                             'Inertial-Compensation'))
+                                             'octave', 'Inertial-Compensation'))
         octave.addpath(mfile)
 
         forces = ['FP1.ForX', 'FP1.ForY', 'FP1.ForZ', 'FP1.MomX',
