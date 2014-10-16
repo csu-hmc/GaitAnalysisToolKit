@@ -43,19 +43,17 @@ Octave/Matlab Librarys
 Several Octave/Matlab routines are included in the ``Octave-Matalb-Codes``
 directory.
 
-``2D-Inverse-Dynamics``
+``2d_inverse_dynamics``
    Implements joint angle and moment computations of a 2D lower body human.
-``Inertial-Compensation``
+``inertial_compensation``
    Compensates force plate forces and moments for inertial effects and
    re-expresses the forces and moments in the camera reference frame.
 ``mmat``
    Fast matrix multiplication.
 ``soder``
    Computes the rigid body orientation and location of a group of markers.
-``Time-Delay``
+``time_delay``
    Deals with the analog signal time delays.
-``VGait-Input-Signals``
-   Simulink models for generating random input signals.
 
 Installation
 ============
