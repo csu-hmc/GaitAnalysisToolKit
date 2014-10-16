@@ -1,8 +1,8 @@
-numpydoc>=0.4
+numpydoc
 numpy
 scipy
 matplotlib
 pandas
 pyyaml
 DynamicistToolKit
-oct2py==1.2.0
+oct2py

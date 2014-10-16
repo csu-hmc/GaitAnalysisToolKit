@@ -65,6 +65,19 @@ install the dependencies first (NumPy, SciPy, matplotlib, Pandas, PyTables).
 The SciPy Stack instructions are helpful for this:
 http://www.scipy.org/stackspec.html.
 
+Supported versions:
+
+- python>=2.7
+- numpy>=1.6.1
+- scipy>=0.9.0
+- matplotlib>=1.1.0
+- tables>=2.3.1
+- pandas>=0.12.0
+- pyyaml>=3.10
+- DynamicistToolKit>=0.3.5
+- oct2py>=1.2.0
+- octave>=3.8.1
+
 We recommend installing Anaconda_ for users in our lab to get all of the
 dependencies.
 
