@@ -3,4 +3,4 @@ include docs/*.rst
 include docs/Makefile
 include docs/conf.py
 include bin/*
-recursive-include Octave-Matlab-Codes *.m *.txt
+recursive-include gaitanalysis/octave *.m *.txt

@@ -208,7 +208,7 @@ class WalkingData(object):
         this_files_dir = os.path.split(__file__)[0]
         m_file_directory = os.path.abspath(os.path.join(this_files_dir,
                                                         'octave',
-                                                        '2D-Inverse-Dynamics'))
+                                                        '2d_inverse_dynamics'))
         octave.addpath(m_file_directory)
 
         options = {'freq': low_pass_cutoff}
