@@ -665,6 +665,7 @@ class WalkingData(object):
                 # future use
                 interpolated_data_frame['Original Time'] = \
                     interpolated_data_frame.index.values.astype(float)
+                interpolated_data_frame['Percent Gait Cycle'] = percent_gait
                 # change the index to percent of gait cycle
                 interpolated_data_frame.index = percent_gait
                 steps[i] = interpolated_data_frame
