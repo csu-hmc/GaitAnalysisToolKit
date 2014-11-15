@@ -114,10 +114,30 @@ Or install for development purposes::
 .. [#] You will need all build dependencies and also note that matplotlib
        doesn't play nice with pip.
 
+Dependencies
+------------
+
+It is recommended to install the software as follows:
+
+Octave can be installed from your package manager or from a downloadable
+binary, for example on Debian based Linux::
+
+   $ sudo apt-get install octave
+
+The core dependencies can be installed with conda in a conda environment::
+
+   $ conda create -n gait python=2.7 pip numpy scipy matplotlib pytables pandas=0.12.0 pyyaml nose sphinx
+   $ source activate gait
+
+And the dependencies which do not have conda packages can be installed into the
+environment with pip::
+
+   (gait)$ pip install DynamicistToolKit oct2py
+
 Tests
 =====
 
-Run the tests with nose::
+When in the repository directory, run the tests with nose::
 
    $ nosetests
 
