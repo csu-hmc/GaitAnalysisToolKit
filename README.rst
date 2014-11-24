@@ -5,8 +5,7 @@ This is a collection of tools that are helpful for gait analysis. Some are
 specific to the needs of the Human Motion and Control Lab at Cleveland State
 University but other portions may have potential for general use. It is
 relatively modular so you can use what you want. It is primarily structured as
-a Python distribution but the Octave/Matlab files are also accessible
-independently.
+a Python distribution but the Octave files are also accessible independently.
 
 .. image:: https://travis-ci.org/csu-hmc/GaitAnalysisToolKit.png?branch=master
    :target: http://travis-ci.org/csu-hmc/GaitAnalysisToolKit
@@ -37,11 +36,10 @@ Each module has a corresponding test module in ``gaitanalysis/tests``
 sub-package which contain unit tests for the classes and functions in the
 respective module.
 
-Octave/Matlab Librarys
-======================
+Octave Librarys
+===============
 
-Several Octave/Matlab routines are included in the ``Octave-Matalb-Codes``
-directory.
+Several Octave routines are included in the ``gaitanalysis/octave`` directory.
 
 ``2d_inverse_dynamics``
    Implements joint angle and moment computations of a 2D lower body human.
@@ -65,25 +63,24 @@ http://www.scipy.org/stackspec.html.
 
 Supported versions:
 
-- python>=2.7
-- numpy>=1.6.1
-- scipy>=0.9.0
-- matplotlib>=1.1.0
-- tables>=2.3.1
-- pandas==0.12.0
-- pyyaml>=3.10
-- DynamicistToolKit>=0.3.5
-- oct2py>=1.2.0
-- octave>=3.8.1
+- python >= 2.7
+- numpy >= 1.6.1
+- scipy >= 0.9.0
+- matplotlib >= 1.1.0
+- tables >= 2.3.1
+- pandas == 0.12.0
+- pyyaml >= 3.10
+- DynamicistToolKit >= 0.3.5
+- oct2py >= 1.2.0
+- octave >= 3.8.1
 
 We recommend installing Anaconda_ for users in our lab to get all of the
 dependencies.
 
 .. _Anaconda: http://docs.continuum.io/anaconda/
 
-We also utilize Octave/Matlab code, so an install of Octave with is also
-required. See http://octave.sourceforge.net/index.html for installation
-instructions.
+We also utilize Octave code, so an install of Octave with is also required. See
+http://octave.sourceforge.net/index.html for installation instructions.
 
 You can install using pip (or easy_install). Pip will theoretically [#]_ get
 the dependencies for you (or at least check if you have them)::
@@ -114,10 +111,53 @@ Or install for development purposes::
 .. [#] You will need all build dependencies and also note that matplotlib
        doesn't play nice with pip.
 
+Dependencies
+------------
+
+It is recommended to install the software dependencies as follows:
+
+Octave can be installed from your package manager or from a downloadable
+binary, for example on Debian based Linux::
+
+   $ sudo apt-get install octave
+
+For oct2py to work, calling Octave from the command line should work after
+Octave is installed. For example,
+
+::
+   $ octave
+   GNU Octave, version 3.8.1
+   Copyright (C) 2014 John W. Eaton and others.
+   This is free software; see the source code for copying conditions.
+   There is ABSOLUTELY NO WARRANTY; not even for MERCHANTABILITY or
+   FITNESS FOR A PARTICULAR PURPOSE.  For details, type 'warranty'.
+
+   Octave was configured for "x86_64-pc-linux-gnu".
+
+   Additional information about Octave is available at http://www.octave.org.
+
+   Please contribute if you find this software useful.
+   For more information, visit http://www.octave.org/get-involved.html
+
+   Read http://www.octave.org/bugs.html to learn how to submit bug reports.
+   For information about changes from previous versions, type 'news'.
+
+   octave:1>
+
+The core dependencies can be installed with conda in a conda environment::
+
+   $ conda create -n gait python=2.7 pip numpy scipy matplotlib pytables pandas=0.12.0 pyyaml nose sphinx
+   $ source activate gait
+
+And the dependencies which do not have conda packages can be installed into the
+environment with pip::
+
+   (gait)$ pip install DynamicistToolKit oct2py
+
 Tests
 =====
 
-Run the tests with nose::
+When in the repository directory, run the tests with nose::
 
    $ nosetests
 
