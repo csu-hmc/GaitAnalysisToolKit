@@ -251,7 +251,7 @@ class TestSimpleControlSolver():
         estimated = self.solver.compute_estimated_controls(solution[0],
                                                            solution[1])
 
-        # mean across validation steps, n x p
+        # mean across validation gait cycles, n x p
         expected_s0 = self.s[self.m:].mean(axis=0)
 
         # for each step

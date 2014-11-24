@@ -115,10 +115,11 @@ def interpolate(data_frame, time):
     return interpolated_data_frame.drop_duplicates()
 
 
-class WalkingData(object):
-    """A class to store typical walking data."""
+class GaitData(object):
+    """A class to store typical gait data."""
 
-    attrs_to_store = ['raw_data', 'steps', 'step_data', 'strikes', 'offs']
+    attrs_to_store = ['raw_data', 'gait_cycles', 'gait_cycle_stats',
+                      'strikes', 'offs']
 
     def __init__(self, data):
         """Initializes the data structure.
@@ -127,8 +128,8 @@ class WalkingData(object):
         ==========
         data : pandas.DataFrame or string
             A data frame with an index of time and columns for each variable
-            measured during a walking run or the path to a HDF5 file created
-            from ``WalkingData.save()``.
+            measured during a gait or the path to a HDF5 file created from
+            ``GaitData.save()``.
 
         """
         # Could have a real time index:
@@ -384,21 +385,21 @@ class WalkingData(object):
             except KeyError:
                 left_col_names = [left_vertical_signal_col_name]
             try:
-                num_steps_to_plot = kwargs.pop('num_steps_to_plot')
+                num_cycles_to_plot = kwargs.pop('num_cycles_to_plot')
             except KeyError:
-                num_steps_to_plot = None
+                num_cycles_to_plot = None
 
             self.plot_landmarks(col_names=right_col_names, side='right',
-                                num_steps_to_plot=num_steps_to_plot)
+                                num_cycles_to_plot=num_cycles_to_plot)
 
             self.plot_landmarks(col_names=left_col_names, side='left',
-                                num_steps_to_plot=num_steps_to_plot)
+                                num_cycles_to_plot=num_cycles_to_plot)
 
         return right_strikes, left_strikes, right_offs, left_offs
 
 
     def plot_landmarks(self, col_names, side, event='both', index=0,
-                       window=None, num_steps_to_plot=None,
+                       window=None, num_cycles_to_plot=None,
                        curve_kwargs=None, heel_kwargs=None,
                        toe_kwargs=None):
         """Creates a plot of the desired signal(s) with the gait event times
@@ -414,16 +415,16 @@ class WalkingData(object):
             Which gait landmarks to plot.
         index : integer, optional, default=0
             The index of the first time sample in the plot. This is useful
-            if you want to plot the steps starting at an arbitrary point in
+            if you want to plot the cycles starting at an arbitrary point in
             time in the data.
         window : integer, optional, default=None
             The number of time samples to plot. This is useful when a trial
-            has many steps and you only want to view some of them in the
+            has many cycles and you only want to view some of them in the
             plot.
-        num_steps_to_plot : integer, optional, default=None
+        num_cycles_to_plot : integer, optional, default=None
             This is an alternative way to specify the window. If this is
             provided, the window argment is ignored and the window is
-            estimated by the desired number of steps.
+            estimated by the desired number of cycles.
         curve_kwargs : dictionary, optional
             Valid matplotlib kwargs that will be used for the signal curves.
         heel_kwargs : dictionary, optional
@@ -441,7 +442,7 @@ class WalkingData(object):
 
         Note
         ====
-        The `index`, `window` and `num_steps_to_plot` arguments do not
+        The `index`, `window` and `num_cycles_to_plot` arguments do not
         simply set the x limit to bound the data of interest, they do not
         plot any data outside the desired range (and is thus faster).
 
@@ -469,13 +470,13 @@ class WalkingData(object):
 
         time = self.raw_data.index.values.astype(float)
 
-        if num_steps_to_plot is not None:
+        if num_cycles_to_plot is not None:
             # Estimate number of samples in window from the first registered
             # strikes. This will always overwrite anything supplied for
             # `window` by the user.
-            step_times = self.strikes['right'][:num_steps_to_plot + 1]
-            window = (np.argmin(np.abs(time - step_times[-1])) -
-                      np.argmin(np.abs(time - step_times[0])))
+            cycle_times = self.strikes['right'][:num_cycles_to_plot + 1]
+            window = (np.argmin(np.abs(time - cycle_times[-1])) -
+                      np.argmin(np.abs(time - cycle_times[0])))
 
         if window is None:
             time_window = time[index:-1]
@@ -547,26 +548,26 @@ class WalkingData(object):
 
         return axes
 
-    def plot_steps(self, *col_names, **kwargs):
-        """Plots the steps.
+    def plot_gait_cycles(self, *col_names, **kwargs):
+        """Plots the time histories of each gait cycle.
 
         Parameters
         ==========
         col_names : string
             A variable number of strings naming the columns to plot.
         mean : boolean, optional
-            If true the mean and standard deviation of the steps will be
+            If true the mean and standard deviation of the cycles will be
             plotted.
         kwargs : key value pairs
             Any extra kwargs to pass to the matplotlib plot command.
 
         """
-        return plot_steps(self.steps, *col_names, **kwargs)
+        return plot_gait_cycles(self.gait_cycles, *col_names, **kwargs)
 
     def split_at(self, side, section='both', num_samples=None,
                  belt_speed_column=None):
-        """Forms a pandas.Panel which has an item for each step. The index
-        of each step data frame will be a percentage of gait cycle.
+        """Forms a pandas.Panel which has an item for each cycle. The index
+        of each cycle data frame will be a percentage of gait cycle.
 
         Parameters
         ==========
@@ -578,15 +579,15 @@ class WalkingData(object):
         num_samples : integer, optional
             If provided, the time series in each gait cycle will be
             interpolated at values evenly spaced at num_sample in time
-            across the step. If None, the maximum number of possible samples
-            per step will be used.
+            across the gait cycle. If None, the maximum number of possible
+            samples per gait cycle will be used.
         belt_speed_column : string, optional
             The column name corresponding to the belt speed on the
             corresponding side.
 
         Returns
         =======
-        steps : pandas.Panel
+        gait_cycles : pandas.Panel
             A panel where each item is a gait cycle. Each cycle has the same
             number of time samples and the index is set to the  percent of
             the gait cycle.
@@ -608,17 +609,17 @@ class WalkingData(object):
         if lead[0] > trail[0]:
             trail = trail[1:]
 
-        # TODO: If there are short steps, and num_samples=None then
+        # TODO: If there are short gait cycles, and num_samples=None then
         # max_num_samples will be low. This needs to be fixed. See issue
         # #71.
         samples = []
         for i, lead_val in enumerate(lead):
             try:
-                step_slice = self.raw_data[lead_val:trail[i]]
+                gait_cycle_slice = self.raw_data[lead_val:trail[i]]
             except IndexError:
                 pass
             else:
-                samples.append(len(step_slice))
+                samples.append(len(gait_cycle_slice))
 
         max_num_samples = min(samples)
         if num_samples is None:
@@ -634,15 +635,15 @@ class WalkingData(object):
         percent_gait = np.linspace(0.0, 1.0 - 1.0 / num_samples,
                                    num=num_samples)
 
-        steps = {}
-        step_data = {'Number of Samples': [],
-                     'Step Duration': [],
-                     'Cadence': [],  # step / time
-                     }
+        gait_cycles = {}
+        gait_cycle_stats = {'Number of Samples': [],
+                            'Stride Duration': [],
+                            'Stride Frequency': [],
+                           }
 
         if belt_speed_column is not None:
-            step_data['Stride Length'] = []
-            step_data['Average Belt Speed'] = []
+            gait_cycle_stats['Stride Length'] = []
+            gait_cycle_stats['Average Belt Speed'] = []
 
         for i, lead_val in enumerate(lead):
             try:
@@ -668,22 +669,22 @@ class WalkingData(object):
                 interpolated_data_frame['Percent Gait Cycle'] = percent_gait
                 # change the index to percent of gait cycle
                 interpolated_data_frame.index = percent_gait
-                steps[i] = interpolated_data_frame
-                # compute some step stats
-                step_data['Number of Samples'].append(len(data_frame))
-                step_data['Step Duration'].append(duration)
-                step_data['Cadence'].append(1.0 / duration)
+                gait_cycles[i] = interpolated_data_frame
+                # compute some gait cycle stats
+                gait_cycle_stats['Number of Samples'].append(len(data_frame))
+                gait_cycle_stats['Stride Duration'].append(duration)
+                gait_cycle_stats['Stride Frequency'].append(1.0 / duration)
                 if belt_speed_column is not None:
                     stride_len = simps(data_frame[belt_speed_column].values,
                                        data_frame.index.values.astype(float))
-                    step_data['Stride Length'].append(stride_len)
+                    gait_cycle_stats['Stride Length'].append(stride_len)
                     avg_speed = data_frame[belt_speed_column].mean()
-                    step_data['Average Belt Speed'].append(avg_speed)
+                    gait_cycle_stats['Average Belt Speed'].append(avg_speed)
 
-        self.steps = pandas.Panel(steps)
-        self.step_data = pandas.DataFrame(step_data)
+        self.gait_cycles = pandas.Panel(gait_cycles)
+        self.gait_cycle_stats = pandas.DataFrame(gait_cycle_stats)
 
-        return self.steps
+        return self.gait_cycles
 
     def time_derivative(self, col_names, new_col_names=None):
         """Numerically differentiates the specified columns with respect to
@@ -953,19 +954,20 @@ def gait_landmarks_from_accel(time, right_accel, left_accel, threshold=0.33, **k
     return right_foot_strikes, left_foot_strikes, right_toe_offs, left_toe_offs
 
 
-def plot_steps(steps, *col_names, **kwargs):
-    """Plots the steps.
+def plot_gait_cycles(gait_cycles, *col_names, **kwargs):
+    """Plots the time histories from each gait cycle on one graph.
 
     Parameters
     ==========
-    steps : pandas.Panel
-        If a panel of gait cycles is provided, then it will be plotted
-        as opposed to the gait cycles stored in `self.steps`.
+    gait_cycles : pandas.Panel
+        A panel of gait cycles. Each item should be a cycle DataFrame with
+        time histories of variables. The index should be the percent gait
+        cycle.
     col_names : string
         A variable number of strings naming the columns to plot.
     mean : boolean, optional, default=False
-        If true the mean and standard deviation of the steps will be
-        plotted.
+        If true the mean and standard deviation of the gait cycles will be
+        plotted instead of the individual lines.
     kwargs : key value pairs
         Any extra kwargs to pass to the matplotlib plot command.
 
@@ -1000,12 +1002,11 @@ def plot_steps(steps, *col_names, **kwargs):
 
     if mean is True:
         fig.suptitle('Mean and standard deviation of ' +
-                     '{} gait cycles.'.format(steps.shape[0]))
-        mean_of_steps = steps.mean(axis='items')
-        std_of_steps = steps.std(axis='items')
+                     '{} gait cycles.'.format(gait_cycles.shape[0]))
+        mean_of_cycles = gait_cycles.mean(axis='items')
+        std_of_cycles = gait_cycles.std(axis='items')
     else:
-        fig.suptitle('Gait cycles for ' +
-                     '{} steps.'.format(steps.shape[0]))
+        fig.suptitle('{} gait cycles'.format(gait_cycles.shape[0]))
 
     for i, col_name in enumerate(col_names):
         try:
@@ -1013,16 +1014,16 @@ def plot_steps(steps, *col_names, **kwargs):
         except TypeError:
             ax = axes
         if mean is True:
-            ax.fill_between(mean_of_steps.index.values.astype(float),
-                            (mean_of_steps[col_name] -
-                                std_of_steps[col_name]).values,
-                            (mean_of_steps[col_name] +
-                                std_of_steps[col_name]).values,
+            ax.fill_between(mean_of_cycles.index.values.astype(float),
+                            (mean_of_cycles[col_name] -
+                                std_of_cycles[col_name]).values,
+                            (mean_of_cycles[col_name] +
+                                std_of_cycles[col_name]).values,
                             alpha=alpha, **kwargs)
-            ax.plot(mean_of_steps.index.values.astype(float),
-                    mean_of_steps[col_name].values, marker=marker, **kwargs)
+            ax.plot(mean_of_cycles.index.values.astype(float),
+                    mean_of_cycles[col_name].values, marker=marker, **kwargs)
         else:
-            for key, value in steps.iteritems():
+            for key, value in gait_cycles.iteritems():
                 ax.plot(value[col_name].index, value[col_name], **kwargs)
 
         ax.xaxis.set_major_formatter(_percent_formatter)

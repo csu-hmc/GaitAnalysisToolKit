@@ -19,7 +19,7 @@ needed.
 
 ``gait.py``
    General tools for working with gait data such as gait landmark
-   identification and 2D inverse dynamics. The main class is ``WalkingData``.
+   identification and 2D inverse dynamics. The main class is ``GaitData``.
 ``controlid.py``
    Tools for identifying control mechanisms in human locomotion.
 ``markers.py``
