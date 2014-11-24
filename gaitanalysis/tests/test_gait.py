@@ -11,7 +11,7 @@ import pandas
 from nose.tools import assert_raises
 
 # local
-from ..gait import find_constant_speed, interpolate, WalkingData
+from ..gait import find_constant_speed, interpolate, GaitData
 from dtk.process import time_vector
 
 # debugging
@@ -64,7 +64,7 @@ def test_interpolate():
                             df_expected.index.values.astype(float))
 
 
-class TestWalkingData():
+class TestGaitData():
 
     def setup(self):
 
@@ -98,9 +98,9 @@ class TestWalkingData():
 
     def test_init(self):
 
-        walking_data = WalkingData(self.data_frame)
+        gait_data = GaitData(self.data_frame)
 
-        assert walking_data.raw_data is self.data_frame
+        assert gait_data.raw_data is self.data_frame
 
     def test_inverse_dynamics_2d(self):
         # This only tests to make sure new columns were inserted after the
@@ -132,9 +132,9 @@ class TestWalkingData():
 
         data_frame = self.data_frame.join(new_data)
 
-        walking_data = WalkingData(data_frame)
+        gait_data = GaitData(data_frame)
 
-        data_frame = walking_data.inverse_dynamics_2d(lmark, rmark, lforce,
+        data_frame = gait_data.inverse_dynamics_2d(lmark, rmark, lforce,
                                                       rforce, 72.0, 6.0)
 
         # The new columns that should be created.
@@ -170,11 +170,11 @@ class TestWalkingData():
                        'Right.Ankle.Y.Force']
 
         for col in new_columns:
-            assert col in walking_data.raw_data.columns
+            assert col in gait_data.raw_data.columns
 
     def test_grf_landmarks(self, plot=False):
         # Test for force plate version
-        walking_data = WalkingData(self.data_frame)
+        gait_data = GaitData(self.data_frame)
 
         min_idx = len(self.data_frame) / 3
         max_idx = 2*len(self.data_frame) / 3
@@ -183,7 +183,7 @@ class TestWalkingData():
         max_time = self.data_frame.index.astype(float)[max_idx]
 
         right_strikes, left_strikes, right_offs, left_offs = \
-            walking_data.grf_landmarks('Right Vertical GRF',
+            gait_data.grf_landmarks('Right Vertical GRF',
                                        'Left Vertical GRF',
                                        min_time=min_time,
                                        max_time=max_time,
@@ -215,115 +215,116 @@ class TestWalkingData():
         # TODO : Add test for accelerometer based gait landmarks
 
     def test_plot_landmarks(self):
-        walking_data = WalkingData(self.data_frame)
-        walking_data.grf_landmarks('Right Vertical GRF',
+        gait_data = GaitData(self.data_frame)
+        gait_data.grf_landmarks('Right Vertical GRF',
                                    'Left Vertical GRF',
                                    threshold=self.threshold)
         side = 'right'
         col_names = ['Right Vertical GRF','Right Knee Angle','Right Knee Moment']
-        time = walking_data.raw_data.index.values.astype(float)
+        time = gait_data.raw_data.index.values.astype(float)
 
-        assert_raises(ValueError, walking_data.plot_landmarks, [], side)
-        assert_raises(ValueError, walking_data.plot_landmarks, col_names, '')
+        assert_raises(ValueError, gait_data.plot_landmarks, [], side)
+        assert_raises(ValueError, gait_data.plot_landmarks, col_names, '')
         # TODO: Test to see if user wants heelstrikes or toeoffs
-        # assert_raises(ValueError, walking_data.plot_landmarks, col_names, side, event='')
+        # assert_raises(ValueError, gait_data.plot_landmarks, col_names, side, event='')
 
     def test_split_at(self, plot=False):
 
-        walking_data = WalkingData(self.data_frame)
-        walking_data.grf_landmarks('Right Vertical GRF',
+        gait_data = GaitData(self.data_frame)
+        gait_data.grf_landmarks('Right Vertical GRF',
                                    'Left Vertical GRF',
                                    threshold=self.threshold)
 
         side = 'right'
         series = 'Right Vertical GRF'
 
-        steps = walking_data.split_at(side)
+        gait_cycles = gait_data.split_at(side)
 
-        for i, step in steps.iteritems():
-            start_heelstrike_time = walking_data.strikes[side][i]
-            end_heelstrike_time = walking_data.strikes[side][i + 1]
-            hs_to_hs = walking_data.raw_data[series][start_heelstrike_time:end_heelstrike_time]
-            num_samples = len(step[series])
+        for i, cycle in gait_cycles.iteritems():
+            start_heelstrike_time = gait_data.strikes[side][i]
+            end_heelstrike_time = gait_data.strikes[side][i + 1]
+            hs_to_hs = gait_data.raw_data[series][start_heelstrike_time:end_heelstrike_time]
+            num_samples = len(cycle[series])
             new_time = np.linspace(0.0, end_heelstrike_time,
                                    num=num_samples + 1)
             old_time = np.linspace(0.0, end_heelstrike_time, num=num_samples)
             new_values = np.interp(new_time, old_time, hs_to_hs.values)
-            testing.assert_allclose(step[series], new_values[:-1])
+            testing.assert_allclose(cycle[series], new_values[:-1])
 
         if plot is True:
-            walking_data.plot_steps(series, 'Left Vertical GRF')
+            gait_data.plot_gait_cycles(series, 'Left Vertical GRF')
 
-        steps = walking_data.split_at(side, 'stance')
+        gait_cycles = gait_data.split_at(side, 'stance')
 
-        for i, step in steps.iteritems():
-            start_heelstrike_time = walking_data.strikes[side][i]
-            end_toeoff_time = walking_data.offs[side][i + 1]
-            hs_to_toeoff = walking_data.raw_data[series][start_heelstrike_time:end_toeoff_time]
-            num_samples = len(step[series])
+        for i, cycle in gait_cycles.iteritems():
+            start_heelstrike_time = gait_data.strikes[side][i]
+            end_toeoff_time = gait_data.offs[side][i + 1]
+            hs_to_toeoff = gait_data.raw_data[series][start_heelstrike_time:end_toeoff_time]
+            num_samples = len(cycle[series])
             new_time = np.linspace(0.0, end_toeoff_time,
                                    num=num_samples + 1)
             old_time = np.linspace(0.0, end_toeoff_time, num=num_samples)
             new_values = np.interp(new_time, old_time, hs_to_toeoff.values)
-            testing.assert_allclose(step[series], new_values[:-1])
+            testing.assert_allclose(cycle[series], new_values[:-1])
 
         if plot is True:
-            walking_data.plot_steps(series, 'Left Vertical GRF')
+            gait_data.plot_gait_cycles(series, 'Left Vertical GRF')
 
-        steps = walking_data.split_at(side, 'swing')
+        gait_cycles = gait_data.split_at(side, 'swing')
 
-        for i, step in steps.iteritems():
-            start_toeoff_time = walking_data.offs[side][i]
-            end_heelstrike_time = walking_data.strikes[side][i]
-            toeoff_to_heelstrike = walking_data.raw_data[series][start_toeoff_time:end_heelstrike_time]
-            num_samples = len(step[series])
+        for i, cycle in gait_cycles.iteritems():
+            start_toeoff_time = gait_data.offs[side][i]
+            end_heelstrike_time = gait_data.strikes[side][i]
+            toeoff_to_heelstrike = gait_data.raw_data[series][start_toeoff_time:end_heelstrike_time]
+            num_samples = len(cycle[series])
             new_time = np.linspace(0.0, end_heelstrike_time,
                                    num=num_samples + 1)
             old_time = np.linspace(0.0, end_heelstrike_time, num=num_samples)
             new_values = np.interp(new_time, old_time,
                                    toeoff_to_heelstrike.values)
-            testing.assert_allclose(step[series], new_values[:-1])
+            testing.assert_allclose(cycle[series], new_values[:-1])
 
         if plot is True:
-            walking_data.plot_steps(series, 'Left Vertical GRF')
+            gait_data.plot_gait_cycles(series, 'Left Vertical GRF')
             import matplotlib.pyplot as plt
             plt.show()
 
-        # TODO : Add tests for step data, i.e. cadence, etc.
+        # TODO : Add tests for gait cycle statistics, i.e. stride frequency,
+        # etc.
 
-    def test_plot_steps(self):
+    def test_plot_gait_cycles(self):
 
-        walking_data = WalkingData(self.data_frame)
-        walking_data.grf_landmarks('Right Vertical GRF',
+        gait_data = GaitData(self.data_frame)
+        gait_data.grf_landmarks('Right Vertical GRF',
                                    'Left Vertical GRF',
                                    threshold=self.threshold)
-        walking_data.split_at('right')
+        gait_data.split_at('right')
 
-        assert_raises(ValueError, walking_data.plot_steps)
+        assert_raises(ValueError, gait_data.plot_gait_cycles)
 
     def test_save_load(self):
 
-        walking_data = WalkingData(self.data_frame)
-        walking_data.grf_landmarks('Right Vertical GRF',
+        gait_data = GaitData(self.data_frame)
+        gait_data.grf_landmarks('Right Vertical GRF',
                                    'Left Vertical GRF',
                                    threshold=self.threshold)
-        walking_data.split_at('right')
+        gait_data.split_at('right')
 
-        walking_data.save('some_data.h5')
+        gait_data.save('some_data.h5')
 
-        walking_data_from_file = WalkingData('some_data.h5')
+        gait_data_from_file = GaitData('some_data.h5')
 
-        assert walking_data.raw_data == walking_data_from_file.raw_data
-        assert walking_data.steps == walking_data_from_file.steps
-        assert walking_data.step_data == walking_data_from_file.step_data
-        assert all(walking_data.strikes['right'] ==
-                   walking_data_from_file.strikes['right'])
-        assert all(walking_data.strikes['left'] ==
-                   walking_data_from_file.strikes['left'])
-        assert all(walking_data.offs['right'] ==
-                   walking_data_from_file.offs['right'])
-        assert all(walking_data.offs['left'] ==
-                   walking_data_from_file.offs['left'])
+        assert gait_data.raw_data == gait_data_from_file.raw_data
+        assert gait_data.gait_cycles == gait_data_from_file.gait_cycles
+        assert gait_data.gait_cycle_stats == gait_data_from_file.gait_cycle_stats
+        assert all(gait_data.strikes['right'] ==
+                   gait_data_from_file.strikes['right'])
+        assert all(gait_data.strikes['left'] ==
+                   gait_data_from_file.strikes['left'])
+        assert all(gait_data.offs['right'] ==
+                   gait_data_from_file.offs['right'])
+        assert all(gait_data.offs['left'] ==
+                   gait_data_from_file.offs['left'])
 
     def teardown(self):
         try:

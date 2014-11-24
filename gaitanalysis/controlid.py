@@ -25,7 +25,7 @@ else:
 
 class SimpleControlSolver(object):
     """This assumes a simple linear control structure at each time instance
-    in a step.
+    in a gait cycle.
 
     The measured joint torques equal some limit cycle joint torque plus a
     matrix of gains multiplied by the error in the sensors and the nominal
@@ -60,14 +60,14 @@ class SimpleControlSolver(object):
 
         Notes
         =====
-        r : number of gait cycles (steps)
+        r : number of gait cycles
         n : number of time samples in each gait cycle
         p + q : number of measurements in the gait cycle
 
         m : number of gait cycles used in identification
 
-        If no validation data is supplied then the last half of the steps
-        will be used for validation.
+        If no validation data is supplied then the last half of the gait
+        cycles will be used for validation.
         m = r / 2 (integer division)
         else
         m = r
@@ -79,9 +79,9 @@ class SimpleControlSolver(object):
         self.controls = controls
 
         if validation_data is None:
-            num_steps = data.shape[0] / 2
-            self.identification_data = data.iloc[:num_steps]
-            self.validation_data = data.iloc[num_steps:]
+            num_gait_cycles = data.shape[0] / 2
+            self.identification_data = data.iloc[:num_gait_cycles]
+            self.validation_data = data.iloc[num_gait_cycles:]
         else:
             self.identification_data = data
             self.validation_data = validation_data
@@ -133,9 +133,9 @@ class SimpleControlSolver(object):
     @validation_data.setter
     def validation_data(self, value):
         if value.shape[1] != self.identification_data.shape[1]:
-            raise ValueError('The validation data must have the same ' +
-                             'number of time steps as the identification ' +
-                             'data.')
+            raise ValueError('The validation data must have the same '
+                             'number of time gait cycles as the '
+                             'identification data.')
 
         self._validation_data = value
 
@@ -155,7 +155,7 @@ class SimpleControlSolver(object):
         Returns
         =======
         panel : pandas.Panel, shape(m, n, q)
-            There is one data frame to correspond to each step in
+            There is one data frame to correspond to each gait cycle in
             self.validation_data. Each data frame has columns of time series
             which store m(t), m*(t), and the individual components due to
             K(t) * se(t).
@@ -168,7 +168,7 @@ class SimpleControlSolver(object):
 
         This function returns m(t), m0(t), m*(t) for each control and K(t) *
         [s0(t) - s(t)] for each sensor affecting each control. Where s0(t)
-        is estimated by taking the mean with respect to the steps.
+        is estimated by taking the mean with respect to the gait cycles.
 
         """
         # generate all of the column names
@@ -506,42 +506,43 @@ class SimpleControlSolver(object):
 
         return x, variance, covariance
 
-    def plot_control_contributions(self, estimated_panel, max_num_steps=4):
-        """Plots two graphs for each control and each step showing
+    def plot_control_contributions(self, estimated_panel,
+                                   max_num_gait_cycles=4):
+        """Plots two graphs for each control and each gait cycle showing
         contributions from the linear portions. The first set of graphs
-        shows the first few steps and the contributions to the control
+        shows the first few gait cycles and the contributions to the control
         moments. The second set of graph shows the mean contributions to the
-        control moment over all steps.
+        control moment over all gait cycles.
 
         Parameters
         ----------
         panel : pandas.Panel, shape(m, n, q)
-            There is one data frame to correspond to each step. Each data
-            frame has columns of time series which store m(t), m*(t), and
-            the individual components due to K(t) * se(t).
+            There is one data frame to correspond to each gait cycle. Each
+            data frame has columns of time series which store m(t), m*(t),
+            and the individual components due to K(t) * se(t).
 
         """
 
-        num_steps = estimated_panel.shape[0]
-        if num_steps > max_num_steps:
-            num_steps = max_num_steps
+        num_gait_cycles = estimated_panel.shape[0]
+        if num_gait_cycles > max_num_gait_cycles:
+            num_gait_cycles = max_num_gait_cycles
 
         column_names = estimated_panel.iloc[0].columns
 
         for control in self.controls:
-            fig, axes = plt.subplots(int(round(num_steps / 2.0)), 2,
+            fig, axes = plt.subplots(int(round(num_gait_cycles / 2.0)), 2,
                                      sharex=True, sharey=True)
             fig.suptitle('Contributions to the {} control'.format(control))
             contribs = [name for name in column_names if '-' in name and
                         name.startswith(control)]
             contribs += [control + '0']
 
-            for ax, (step_num, cycle) in zip(axes.flatten()[:num_steps],
+            for ax, (gait_cycle_num, cycle) in zip(axes.flatten()[:num_gait_cycles],
                                              estimated_panel.iteritems()):
                 # here we want to plot each component of this:
                 # m0 + k11 * se1 + k12 se2
                 cycle[contribs].plot(kind='bar', stacked=True, ax=ax,
-                                     title='Step {}'.format(step_num),
+                                     title='Gait Cycle {}'.format(gait_cycle_num),
                                      colormap='jet')
                 # TODO: Figure out why the xtick formatting doesn't work
                 # this formating method seems to make the whole plot blank
@@ -601,7 +602,7 @@ class SimpleControlSolver(object):
         Parameters
         ==========
         estimated_panel : pandas.Panel
-            A panel where each item is a step.
+            A panel where each item is a gait cycle.
         variance : float
             The variance of the fit.
 
