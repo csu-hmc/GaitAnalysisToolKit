@@ -125,6 +125,7 @@ For oct2py to work, calling Octave from the command line should work after
 Octave is installed. For example,
 
 ::
+
    $ octave
    GNU Octave, version 3.8.1
    Copyright (C) 2014 John W. Eaton and others.
