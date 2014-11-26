@@ -33,9 +33,9 @@ class TestSimpleControlSolver():
         self.r = 10
         self.m = self.r / 2
 
-        self.gain_omission_matrix = np.array(self.q * [self.p * [True]])
-        self.gain_omission_matrix[0, 1] = False
-        self.gain_omission_matrix[1, 0] = False
+        self.gain_inclusion_matrix = np.array(self.q * [self.p * [True]])
+        self.gain_inclusion_matrix[0, 1] = False
+        self.gain_inclusion_matrix[1, 0] = False
 
         # pick m*(t), K(t), and s(t), then generate mm(t)
         # mm(t) = m*(t) - K(t) * s(t)
@@ -157,15 +157,15 @@ class TestSimpleControlSolver():
         testing.assert_allclose(expected_A, A)
 
         # Now test to see if the gain omission works.
-        self.solver.gain_omission_matrix = self.gain_omission_matrix
+        self.solver.gain_inclusion_matrix = self.gain_inclusion_matrix
 
         A, b = self.solver.form_a_b()
 
         # TODO : This is the extact code in the source, not sure it is a
         # useful test then... It would be more useful if it was a different
         # implmentation or something.
-        # form a x vector from the gain_omission_matrix
-        x1 = self.gain_omission_matrix.reshape(self.q * self.p)
+        # form a x vector from the gain_inclusion_matrix
+        x1 = self.gain_inclusion_matrix.reshape(self.q * self.p)
         x2 = np.array(self.q * [True])
         for i in range(self.n):
             try:
@@ -194,12 +194,12 @@ class TestSimpleControlSolver():
 
         assert (covariance == 0.0).all()
 
-        self.solver.gain_omission_matrix = self.gain_omission_matrix
+        self.solver.gain_inclusion_matrix = self.gain_inclusion_matrix
         A, b = self.solver.form_a_b()
         x, variance, covariance = self.solver.least_squares(A, b)
 
         expected_normal_x_length = self.q * (1 + self.p) * self.n
-        removed_parameters = self.n * self.gain_omission_matrix.sum()
+        removed_parameters = self.n * self.gain_inclusion_matrix.sum()
 
         assert len(x) == expected_normal_x_length - removed_parameters
         # TODO : check that x is correct
@@ -218,7 +218,7 @@ class TestSimpleControlSolver():
         testing.assert_allclose(control_vectors, self.m_star, atol=1e-12)
 
         # now with gain omission matrix
-        self.solver.gain_omission_matrix = self.gain_omission_matrix
+        self.solver.gain_inclusion_matrix = self.gain_inclusion_matrix
         A, b = self.solver.form_a_b()
         x, variance, covariance = self.solver.least_squares(A, b)
         (gain_matrices, control_vectors, gain_matrices_variance,
@@ -227,19 +227,19 @@ class TestSimpleControlSolver():
 
         for i in range(self.n):
             testing.assert_equal(np.abs(gain_matrices[i]) > 1e-16,
-                                 self.gain_omission_matrix)
+                                 self.gain_inclusion_matrix)
             testing.assert_equal(np.abs(gain_matrices_variance[i]) > 1e-16,
-                                 self.gain_omission_matrix)
+                                 self.gain_inclusion_matrix)
 
     def test_solve(self):
 
         self.solver.solve()
-        assert self.solver.gain_omission_matrix is None
+        assert self.solver.gain_inclusion_matrix is None
 
-        self.solver.solve(gain_omission_matrix=self.gain_omission_matrix)
+        self.solver.solve(gain_inclusion_matrix=self.gain_inclusion_matrix)
 
-        testing.assert_equal(self.solver.gain_omission_matrix,
-                             self.gain_omission_matrix)
+        testing.assert_equal(self.solver.gain_inclusion_matrix,
+                             self.gain_inclusion_matrix)
 
         # TODO : check everything else in solve!
 
