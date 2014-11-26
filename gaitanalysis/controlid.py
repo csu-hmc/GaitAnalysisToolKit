@@ -73,7 +73,7 @@ class SimpleControlSolver(object):
         m = r
 
         """
-        self._gain_omission_matrix = None
+        self._gain_inclusion_matrix = None
 
         self.sensors = sensors
         self.controls = controls
@@ -106,16 +106,16 @@ class SimpleControlSolver(object):
         self.n = value.shape[1]
 
     @property
-    def gain_omission_matrix(self):
-        return self._gain_omission_matrix
+    def gain_inclusion_matrix(self):
+        return self._gain_inclusion_matrix
 
-    @gain_omission_matrix.setter
-    def gain_omission_matrix(self, value):
+    @gain_inclusion_matrix.setter
+    def gain_inclusion_matrix(self, value):
         if value is not None:
             if value.shape != (self.q, self.p):
                 raise ValueError('The gain omission matrix should be of ' +
                                  'shape({}, {})'.format(self.q, self.p))
-        self._gain_omission_matrix = value
+        self._gain_inclusion_matrix = value
 
     @property
     def sensors(self):
@@ -271,8 +271,8 @@ class SimpleControlSolver(object):
 
         # If there is a gain omission matrix then augment the x vector and
         # covariance matrix with nans for the missing values.
-        if self.gain_omission_matrix is not None:
-            x1 = self.gain_omission_matrix.flatten()
+        if self.gain_inclusion_matrix is not None:
+            x1 = self.gain_inclusion_matrix.flatten()
             x2 = np.array(self.q * [True])
             for i in range(self.n):
                 try:
@@ -386,8 +386,8 @@ class SimpleControlSolver(object):
         # If there are nans in the gain omission matrix, then delete the
         # columns in A associated with gains that are set to zero.
         # TODO : Turn this into a method because I use it at least twice.
-        if self.gain_omission_matrix is not None:
-            x1 = self.gain_omission_matrix.flatten()
+        if self.gain_inclusion_matrix is not None:
+            x1 = self.gain_inclusion_matrix.flatten()
             x2 = np.array(self.q * [True])
             for i in range(self.n):
                 try:
@@ -717,7 +717,7 @@ class SimpleControlSolver(object):
 
         return axes
 
-    def solve(self, sparse_a=False, gain_omission_matrix=None,
+    def solve(self, sparse_a=False, gain_inclusion_matrix=None,
               ignore_cov=False):
         """Returns the estimated gains and sensor limit cycles along with
         their variance.
@@ -727,7 +727,7 @@ class SimpleControlSolver(object):
         sparse_a : boolean, optional, default=False
             If true a sparse A matrix will be used along with a sparse
             linear least squares solver.
-        gain_omission_matrix : boolean array_like, shape(q, p)
+        gain_inclusion_matrix : boolean array_like, shape(q, p)
             A matrix which is the same shape as the identified gain matrices
             which has False in place of gains that should be assumed to be
             zero and True for gains that should be identified.
@@ -754,7 +754,7 @@ class SimpleControlSolver(object):
         estimated_controls : pandas.Panel
 
         """
-        self.gain_omission_matrix = gain_omission_matrix
+        self.gain_inclusion_matrix = gain_inclusion_matrix
 
         A, b = self.form_a_b()
 
