@@ -5,6 +5,7 @@
 import numpy as np
 from numpy import testing
 import pandas
+from pandas.util.testing import assert_panelnd_equal
 
 # local
 from ..controlid import SimpleControlSolver
@@ -79,8 +80,10 @@ class TestSimpleControlSolver():
 
     def test_init(self):
 
-        assert self.all_cycles.iloc[:self.m] == self.solver.identification_data
-        assert self.all_cycles.iloc[self.m:] == self.solver.validation_data
+        assert_panelnd_equal(self.all_cycles.iloc[:self.m],
+                             self.solver.identification_data)
+        assert_panelnd_equal(self.all_cycles.iloc[self.m:],
+                             self.solver.validation_data)
         assert self.solver.n == self.n
         assert self.solver.m == self.m
 
