@@ -1513,7 +1513,8 @@ class DFlowData(object):
 
         return data
 
-    def extract_processed_data(self, event=None, index_col=None, isb_coordinates=False):
+    def extract_processed_data(self, event=None, index_col=None,
+                               isb_coordinates=False):
         """Returns the processed data in a data frame. If an event name is
         provided, then a data frame with only that event is returned.
 
@@ -1571,9 +1572,8 @@ class DFlowData(object):
 
     def write_dflow_tsv(self, filename, na_rep='NA'):
 
-        # This must preserve the mocap column order and can only append the
-        # record to the right most columns.
+        # TODO: This must preserve the mocap column order and can only
+        # append the record to the right most columns.
 
         self.data.to_csv(filename, sep='\t', float_format='%1.6f',
-                         na_rep=na_rep, index=False,
-                         cols=self.mocap_column_labels)
+                         na_rep=na_rep, index=False)
