@@ -7,6 +7,10 @@ University but other portions may have potential for general use. It is
 relatively modular so you can use what you want. It is primarily structured as
 a Python distribution but the Octave files are also accessible independently.
 
+.. image:: https://pypip.in/version/gaitanalysistoolkit/badge.svg
+    :target: https://pypi.python.org/pypi/gaitanalysistoolkit/
+    :alt: Latest Version
+
 .. image:: https://travis-ci.org/csu-hmc/GaitAnalysisToolKit.png?branch=master
    :target: http://travis-ci.org/csu-hmc/GaitAnalysisToolKit
 
