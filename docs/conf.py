@@ -29,8 +29,9 @@ class Mock(MagicMock):
     def __getattr__(cls, name):
             return Mock()
 
-MOCK_MODULES = ['numpy', 'scipy', 'matplotlib', 'tables', 'pandas',
-                'pyyaml', 'DynamicistToolKit', 'oct2py']
+MOCK_MODULES = ['numpy', 'scipy', 'scipy.integrate', 'scipy.interpolate',
+                'matplotlib', 'matplotlib.pyplot', 'matplotlib.ticker',
+                'tables', 'pandas', 'pyyaml', 'dtk', 'oct2py']
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # -- General configuration -----------------------------------------------------
