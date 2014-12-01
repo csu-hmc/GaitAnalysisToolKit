@@ -68,7 +68,7 @@ Supported versions:
 - scipy >= 0.9.0
 - matplotlib >= 1.1.0
 - tables >= 2.3.1
-- pandas == 0.12.0
+- pandas >= 0.12.0
 - pyyaml >= 3.10
 - DynamicistToolKit >= 0.3.5
 - oct2py >= 1.2.0
@@ -147,7 +147,7 @@ Octave is installed. For example,
 
 The core dependencies can be installed with conda in a conda environment::
 
-   $ conda create -n gait python=2.7 pip numpy scipy matplotlib pytables pandas=0.12.0 pyyaml nose sphinx
+   $ conda create -n gait python=2.7 pip numpy scipy matplotlib pytables pandas pyyaml nose sphinx
    $ source activate gait
 
 And the dependencies which do not have conda packages can be installed into the
