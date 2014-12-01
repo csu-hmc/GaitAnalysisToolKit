@@ -11,6 +11,9 @@ a Python distribution but the Octave files are also accessible independently.
     :target: https://pypi.python.org/pypi/gaitanalysistoolkit/
     :alt: Latest Version
 
+.. image:: https://zenodo.org/badge/6017/csu-hmc/GaitAnalysisToolKit.svg
+   :target: http://dx.doi.org/10.5281/zenodo.13006
+
 .. image:: https://travis-ci.org/csu-hmc/GaitAnalysisToolKit.png?branch=master
    :target: http://travis-ci.org/csu-hmc/GaitAnalysisToolKit
 
