@@ -103,7 +103,7 @@ class TestMissingMarkerIdentfier:
 
         marker_columns = ['T10.PosX', 'T10.PosY', 'T10.PosZ']
         identifier = \
-            MissingMarkerIdentifier(self.with_constant[marker_columns])
+            MissingMarkerIdentifier(self.with_constant[marker_columns].copy())
         identified = identifier.identify()
         compare_data_frames(identified, self.with_missing[marker_columns])
 
@@ -115,7 +115,7 @@ class TestMissingMarkerIdentfier:
 
         marker_columns = ['T10.PosX', 'T10.PosY', 'T10.PosZ']
         identifier = \
-            MissingMarkerIdentifier(self.with_constant[marker_columns])
+            MissingMarkerIdentifier(self.with_constant[marker_columns].copy())
         identifier.identify()
         statistics = identifier.statistics()
         compare_data_frames(statistics, self.statistics)
@@ -287,19 +287,21 @@ class TestDFlowData():
                                 cortex_analog_labels +
                                 delsys_labels)
     relabeled_mocap_labels_without_hbm = (['TimeStamp', 'FrameNumber'] +
-                                all_marker_labels +
-                                cortex_force_labels +
-                                relabeled_cortex_analog_labels +
-                                relabeled_delsys_labels)
+                                          all_marker_labels +
+                                          cortex_force_labels +
+                                          relabeled_cortex_analog_labels +
+                                          relabeled_delsys_labels)
     default_mocap_labels_without_hbm = (['TimeStamp', 'FrameNumber'] +
-                                all_marker_labels +
-                                cortex_force_labels +
-                                default_cortex_analog_labels +
-                                default_delsys_labels)
+                                        all_marker_labels +
+                                        cortex_force_labels +
+                                        default_cortex_analog_labels +
+                                        default_delsys_labels)
 
     mocap_labels_with_hbm = mocap_labels_without_hbm + dflow_hbm_labels
-    relabeled_mocap_labels_with_hbm = relabeled_mocap_labels_without_hbm + dflow_hbm_labels
-    default_mocap_labels_with_hbm = default_mocap_labels_without_hbm + dflow_hbm_labels
+    relabeled_mocap_labels_with_hbm = (relabeled_mocap_labels_without_hbm +
+                                       dflow_hbm_labels)
+    default_mocap_labels_with_hbm = (default_mocap_labels_without_hbm +
+                                     dflow_hbm_labels)
 
     record_labels = ['Time', 'RightBeltSpeed', 'LeftBeltSpeed']
 
@@ -367,10 +369,18 @@ class TestDFlowData():
                                 },
                             'sensor-orientation':
                                 {
-                                    "Front_Left": [[0, 1, 0], [1, 0, 0], [0, 0, -1]],
-                                    "Back_Left": [[0, -1, 0], [1, 0, 0], [0, 0, 1]],
-                                    "Front_Right": [[0, 0, 1], [1, 0, 0], [0, 1, 0]],
-                                    "Back_Right": [[0, 1, 0], [0, 0, 1], [1, 0, 0]],
+                                    "Front_Left": [[0, 1, 0],
+                                                   [1, 0, 0],
+                                                   [0, 0, -1]],
+                                    "Back_Left": [[0, -1, 0],
+                                                  [1, 0, 0],
+                                                  [0, 0, 1]],
+                                    "Front_Right": [[0, 0, 1],
+                                                    [1, 0, 0],
+                                                    [0, 1, 0]],
+                                    "Back_Right": [[0, 1, 0],
+                                                   [0, 0, 1],
+                                                   [1, 0, 0]],
                                 },
                            'data-description':
                                {
@@ -453,13 +463,19 @@ class TestDFlowData():
         for j, index in enumerate(self.missing_marker_start_indices):
             for signal in (self.cortex_marker_labels +
                            self.compensation_treadmill_markers):
-                s = self.mocap_data_frame[signal]
-                s[index:index + self.length_missing[j]] = \
-                    self.mocap_data_frame[signal][index]
+                s = self.mocap_data_frame.loc[:, signal]
+                self.mocap_data_frame.ix[index:index + self.length_missing[j],
+                                         signal] = s.iloc[index]
 
-        self.mocap_data_frame.to_csv(self.path_to_mocap_data_file, sep='\t',
-                                     float_format='%1.6f', index=False,
-                                     cols=self.mocap_labels_with_hbm)
+        # The kwarg 'cols' is being deprecated and a warning is issued in
+        # 0.15, but in 0.12 columns is not supported. I haven't checked 0.13
+        # or 0.14.
+        kwargs = {'sep': '\t', 'float_format': '%1.6f', 'index': False}
+        if LooseVersion(pandas.__version__) >= LooseVersion('0.15.0'):
+            kwargs['columns'] = self.mocap_labels_with_hbm
+        else:
+            kwargs['cols'] = self.mocap_labels_with_hbm
+        self.mocap_data_frame.to_csv(self.path_to_mocap_data_file, **kwargs)
 
     def create_sample_compensation_file(self):
 
@@ -494,9 +510,16 @@ class TestDFlowData():
                 self.delsys_labels
                 )
 
+        # The kwarg 'cols' is being deprecated and a warning is issued in
+        # 0.15, but in 0.12 columns is not supported. I haven't checked 0.13
+        # or 0.14.
+        kwargs = {'sep': '\t', 'float_format': '%1.6f', 'index': False}
+        if LooseVersion(pandas.__version__) >= LooseVersion('0.15.0'):
+            kwargs['columns'] = cols
+        else:
+            kwargs['cols'] = cols
         self.compensation_data_frame.to_csv(self.path_to_compensation_data_file,
-                                            sep='\t', float_format='%1.6f',
-                                            index=False, cols=cols)
+                                            **kwargs)
 
     def create_sample_meta_data_file(self):
         """We will have an optional YAML file containing meta data for
@@ -540,13 +563,17 @@ class TestDFlowData():
         record_data['RightBeltSpeed'] = np.random.random(len(self.record_time))
 
         self.record_data_frame = pandas.DataFrame(record_data)
-        # TODO : Pandas 0.11.0 does not have a cols argument.
-        # http://pandas.pydata.org/pandas-docs/version/0.10.1/generated/pandas.Series.to_csv.html
+
+        # The kwarg 'cols' is being deprecated and a warning is issued in
+        # 0.15, but in 0.12 columns is not supported. I haven't checked 0.13
+        # or 0.14.
+        kwargs = {'sep': '\t', 'float_format': '%1.6f', 'index': False}
+        if LooseVersion(pandas.__version__) >= LooseVersion('0.15.0'):
+            kwargs['columns'] = ['Time', 'LeftBeltSpeed', 'RightBeltSpeed']
+        else:
+            kwargs['cols'] = ['Time', 'LeftBeltSpeed', 'RightBeltSpeed']
         self.record_data_frame.to_csv(self.path_to_record_data_file,
-                                      sep='\t', float_format='%1.6f',
-                                      index=False, cols=['Time',
-                                                         'LeftBeltSpeed',
-                                                         'RightBeltSpeed'])
+                                      **kwargs)
 
         event_template = "#\n# EVENT {} - COUNT {}\n#\n"
 
@@ -884,13 +911,14 @@ class TestDFlowData():
                                                        'TimeStamp',
                                                        columns=dflow_data.marker_column_labels)
 
+        # There should be no nans in the interpolated data.
         assert not pandas.isnull(interpolated).any().any()
 
         for label in (self.compensation_treadmill_markers +
                       self.cortex_marker_labels):
             testing.assert_allclose(interpolated[label].values,
                                     np.sin(interpolated['TimeStamp']).values,
-                                    atol=1e-3)
+                                    rtol=1e-3, atol=1e-3)
 
     def test_missing_markers_are_zeros(self):
 

@@ -8,6 +8,7 @@ import os
 import numpy as np
 from numpy import testing
 import pandas
+from pandas.util.testing import assert_frame_equal
 from nose.tools import assert_raises
 
 # local
@@ -184,13 +185,13 @@ class TestGaitData():
 
         right_strikes, left_strikes, right_offs, left_offs = \
             gait_data.grf_landmarks('Right Vertical GRF',
-                                       'Left Vertical GRF',
-                                       min_time=min_time,
-                                       max_time=max_time,
-                                       threshold=self.threshold,
-                                       do_plot=plot)
+                                    'Left Vertical GRF',
+                                    min_time=min_time,
+                                    max_time=max_time,
+                                    threshold=self.threshold,
+                                    do_plot=plot)
 
-        right_zero = self.data_frame['Right Vertical GRF'][min_idx:max_idx] \
+        right_zero = self.data_frame['Right Vertical GRF'].iloc[min_idx:max_idx] \
                         < self.threshold
         instances = right_zero.apply(lambda x: 1 if x else 0).diff()
         expected_right_offs = \
@@ -198,7 +199,7 @@ class TestGaitData():
         expected_right_strikes = \
             instances[instances == -1].index.values.astype(float)
 
-        left_zero = self.data_frame['Left Vertical GRF'][min_idx:max_idx] \
+        left_zero = self.data_frame['Left Vertical GRF'].iloc[min_idx:max_idx] \
                         < self.threshold
         instances = left_zero.apply(lambda x: 1 if x else 0).diff()
         expected_left_offs = \
@@ -314,9 +315,11 @@ class TestGaitData():
 
         gait_data_from_file = GaitData('some_data.h5')
 
-        assert gait_data.raw_data == gait_data_from_file.raw_data
-        assert gait_data.gait_cycles == gait_data_from_file.gait_cycles
-        assert gait_data.gait_cycle_stats == gait_data_from_file.gait_cycle_stats
+        assert_frame_equal(gait_data.raw_data, gait_data_from_file.raw_data)
+        for key, cycle in gait_data.gait_cycles.iteritems():
+            assert_frame_equal(cycle, gait_data_from_file.gait_cycles[key])
+        assert_frame_equal(gait_data.gait_cycle_stats,
+                           gait_data_from_file.gait_cycle_stats)
         assert all(gait_data.strikes['right'] ==
                    gait_data_from_file.strikes['right'])
         assert all(gait_data.strikes['left'] ==
