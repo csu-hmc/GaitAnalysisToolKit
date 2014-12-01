@@ -1,8 +1,2 @@
+mock
 numpydoc
-numpy
-scipy
-matplotlib
-pandas
-pyyaml
-DynamicistToolKit
-oct2py
