@@ -101,7 +101,7 @@ class TestGaitData():
 
         gait_data = GaitData(self.data_frame)
 
-        assert gait_data.raw_data is self.data_frame
+        assert gait_data.data is self.data_frame
 
     def test_inverse_dynamics_2d(self):
         # This only tests to make sure new columns were inserted after the
@@ -171,7 +171,7 @@ class TestGaitData():
                        'Right.Ankle.Y.Force']
 
         for col in new_columns:
-            assert col in gait_data.raw_data.columns
+            assert col in gait_data.data.columns
 
     def test_grf_landmarks(self, plot=False):
         # Test for force plate version
@@ -222,7 +222,7 @@ class TestGaitData():
                                    threshold=self.threshold)
         side = 'right'
         col_names = ['Right Vertical GRF','Right Knee Angle','Right Knee Moment']
-        time = gait_data.raw_data.index.values.astype(float)
+        time = gait_data.data.index.values.astype(float)
 
         assert_raises(ValueError, gait_data.plot_landmarks, [], side)
         assert_raises(ValueError, gait_data.plot_landmarks, col_names, '')
@@ -244,7 +244,7 @@ class TestGaitData():
         for i, cycle in gait_cycles.iteritems():
             start_heelstrike_time = gait_data.strikes[side][i]
             end_heelstrike_time = gait_data.strikes[side][i + 1]
-            hs_to_hs = gait_data.raw_data[series][start_heelstrike_time:end_heelstrike_time]
+            hs_to_hs = gait_data.data[series][start_heelstrike_time:end_heelstrike_time]
             num_samples = len(cycle[series])
             new_time = np.linspace(0.0, end_heelstrike_time,
                                    num=num_samples + 1)
@@ -260,7 +260,7 @@ class TestGaitData():
         for i, cycle in gait_cycles.iteritems():
             start_heelstrike_time = gait_data.strikes[side][i]
             end_toeoff_time = gait_data.offs[side][i + 1]
-            hs_to_toeoff = gait_data.raw_data[series][start_heelstrike_time:end_toeoff_time]
+            hs_to_toeoff = gait_data.data[series][start_heelstrike_time:end_toeoff_time]
             num_samples = len(cycle[series])
             new_time = np.linspace(0.0, end_toeoff_time,
                                    num=num_samples + 1)
@@ -276,7 +276,7 @@ class TestGaitData():
         for i, cycle in gait_cycles.iteritems():
             start_toeoff_time = gait_data.offs[side][i]
             end_heelstrike_time = gait_data.strikes[side][i]
-            toeoff_to_heelstrike = gait_data.raw_data[series][start_toeoff_time:end_heelstrike_time]
+            toeoff_to_heelstrike = gait_data.data[series][start_toeoff_time:end_heelstrike_time]
             num_samples = len(cycle[series])
             new_time = np.linspace(0.0, end_heelstrike_time,
                                    num=num_samples + 1)
@@ -315,7 +315,7 @@ class TestGaitData():
 
         gait_data_from_file = GaitData('some_data.h5')
 
-        assert_frame_equal(gait_data.raw_data, gait_data_from_file.raw_data)
+        assert_frame_equal(gait_data.data, gait_data_from_file.data)
         for key, cycle in gait_data.gait_cycles.iteritems():
             assert_frame_equal(cycle, gait_data_from_file.gait_cycles[key])
         assert_frame_equal(gait_data.gait_cycle_stats,
