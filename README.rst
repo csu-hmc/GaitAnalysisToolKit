@@ -36,8 +36,8 @@ Each module has a corresponding test module in ``gaitanalysis/tests``
 sub-package which contain unit tests for the classes and functions in the
 respective module.
 
-Octave Librarys
-===============
+Octave Libraries
+================
 
 Several Octave routines are included in the ``gaitanalysis/octave`` directory.
 
@@ -285,6 +285,5 @@ Release Notes
 0.1.0
 -----
 
-- Included Octave/Matlab source for inertial compensation.
-- Included Octave/Matlab source to compute inverse 2D dynamics.
+- Initial release
 - Copied the walk module from DynamicistToolKit @ eecaebd31940179fe25e99a68c91b75d8b8f191f

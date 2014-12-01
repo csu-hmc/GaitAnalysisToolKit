@@ -440,8 +440,9 @@ class GaitData(object):
             column was supplied. Same as `matplotlib.pyplot.subplots`
             returns.
 
-        Note
-        ====
+        Notes
+        =====
+
         The `index`, `window` and `num_cycles_to_plot` arguments do not
         simply set the x limit to bound the data of interest, they do not
         plot any data outside the desired range (and is thus faster).

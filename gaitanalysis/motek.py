@@ -1384,9 +1384,11 @@ class DFlowData(object):
 
         References
         ----------
-        [1] Wu G. and Cavanagh, P. R., 1995, "ISB recommendations for
-        standardization in the reporting of kinematic data", J.
-        Biomechanics, Vol 28, No 10.
+
+        .. [Wu1995] Wu G. and Cavanagh, P. R., 1995, "ISB recommendations
+           for standardization in the reporting of kinematic data", J.
+           Biomechanics, Vol 28, No 10.
+
         """
         R = np.array([[0.0, 0.0, -1.0],
                       [0.0, 1.0, 0.0],

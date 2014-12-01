@@ -633,7 +633,7 @@ D-Flow file outputs.
 
 ::
 
-   from dtk.walk import DFlowData
+   from gaitanalysis.motek import DFlowData
 
    # Initialize the object.
    data = DFlowData(mocap_tsv_path='trial_01_mocap.txt',
@@ -646,7 +646,7 @@ D-Flow file outputs.
 
    # The following command returns a Pandas DataFrame of all the measurements
    # for the time period matching the event.
-   perturbed_walking = data.extract_Data(event='walking with perturbation')
+   perturbed_walking = data.extract_processed_data(event='walking with perturbation')
 
    # The class in includes writers to write the manipulated data to file, in
    # this case a D-Flow compatible text file.
