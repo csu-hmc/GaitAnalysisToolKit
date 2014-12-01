@@ -185,13 +185,13 @@ class TestGaitData():
 
         right_strikes, left_strikes, right_offs, left_offs = \
             gait_data.grf_landmarks('Right Vertical GRF',
-                                       'Left Vertical GRF',
-                                       min_time=min_time,
-                                       max_time=max_time,
-                                       threshold=self.threshold,
-                                       do_plot=plot)
+                                    'Left Vertical GRF',
+                                    min_time=min_time,
+                                    max_time=max_time,
+                                    threshold=self.threshold,
+                                    do_plot=plot)
 
-        right_zero = self.data_frame['Right Vertical GRF'][min_idx:max_idx] \
+        right_zero = self.data_frame['Right Vertical GRF'].iloc[min_idx:max_idx] \
                         < self.threshold
         instances = right_zero.apply(lambda x: 1 if x else 0).diff()
         expected_right_offs = \
@@ -199,7 +199,7 @@ class TestGaitData():
         expected_right_strikes = \
             instances[instances == -1].index.values.astype(float)
 
-        left_zero = self.data_frame['Left Vertical GRF'][min_idx:max_idx] \
+        left_zero = self.data_frame['Left Vertical GRF'].iloc[min_idx:max_idx] \
                         < self.threshold
         instances = left_zero.apply(lambda x: 1 if x else 0).diff()
         expected_left_offs = \

@@ -260,7 +260,7 @@ def spline_interpolate_over_missing(data_frame, abscissa_column, order=1,
             interpolate = InterpolatedUnivariateSpline(time_at_valid,
                                                        without_na, k=order)
             interpolated_values = interpolate(time[is_null].values)
-            data_frame[column][is_null] = interpolated_values
+            data_frame.loc[is_null, column] = interpolated_values
 
     return data_frame
 
