@@ -118,7 +118,7 @@ def interpolate(data_frame, time):
 class GaitData(object):
     """A class to store typical gait data."""
 
-    attrs_to_store = ['raw_data', 'gait_cycles', 'gait_cycle_stats',
+    attrs_to_store = ['data', 'gait_cycles', 'gait_cycle_stats',
                       'strikes', 'offs']
 
     def __init__(self, data):
@@ -140,7 +140,7 @@ class GaitData(object):
         try:
             f = open(data)
         except TypeError:
-            self.raw_data = data
+            self.data = data
         else:
             f.close()
             self.load(data)
@@ -214,7 +214,7 @@ class GaitData(object):
 
         options = {'freq': low_pass_cutoff}
 
-        time = self.raw_data.index.values.astype(float)
+        time = self.data.index.values.astype(float)
         time = time.reshape((len(time), 1))  # octave wants a column vector
 
         marker_sets = [left_leg_markers, right_leg_markers]
@@ -229,9 +229,9 @@ class GaitData(object):
         for side_label, markers, forces in zip(side_labels, marker_sets,
                                                force_sets):
 
-            marker_array = self.raw_data[markers].values.copy()
+            marker_array = self.data[markers].values.copy()
             normalized_force_array = \
-                self.raw_data[forces].values.copy() / body_mass
+                self.data[forces].values.copy() / body_mass
 
             # oct2py doesn't allow multiple outputs to be stored in a tuple
             # like python, so you have to output each variable
@@ -259,7 +259,7 @@ class GaitData(object):
                             label = '.'.join([side_label, joint_label, slab,
                                               dynamic_label])
 
-                            self.raw_data[label] = scale_factor * vector
+                            self.data[label] = scale_factor * vector
 
                 else:
 
@@ -270,9 +270,9 @@ class GaitData(object):
                         label = '.'.join([side_label, joint_label,
                                           sign_label, dynamic_label])
 
-                        self.raw_data[label] = scale_factor * vector
+                        self.data[label] = scale_factor * vector
 
-        return self.raw_data
+        return self.data
 
     def tpose(self, data_frame):
         """
@@ -335,7 +335,7 @@ class GaitData(object):
         def nearest_index(array, val):
             return np.abs(array - val).argmin()
 
-        time = self.raw_data.index.values.astype(float)
+        time = self.data.index.values.astype(float)
 
         # Time range to consider.
 
@@ -362,8 +362,8 @@ class GaitData(object):
 
         right_strikes, left_strikes, right_offs, left_offs = \
             func[method](time[self.min_idx:self.max_idx],
-                         self.raw_data[right_vertical_signal_col_name].values[self.min_idx:self.max_idx],
-                         self.raw_data[left_vertical_signal_col_name].values[self.min_idx:self.max_idx],
+                         self.data[right_vertical_signal_col_name].values[self.min_idx:self.max_idx],
+                         self.data[left_vertical_signal_col_name].values[self.min_idx:self.max_idx],
                          **kwargs)
 
         self.strikes = {}
@@ -468,7 +468,7 @@ class GaitData(object):
 
         fig, axes = plt.subplots(len(col_names), sharex=True)
 
-        time = self.raw_data.index.values.astype(float)
+        time = self.data.index.values.astype(float)
 
         if num_cycles_to_plot is not None:
             # Estimate number of samples in window from the first registered
@@ -489,7 +489,7 @@ class GaitData(object):
             except TypeError:  # if only one column
                 ax = axes
 
-            signal = self.raw_data[col_name]
+            signal = self.data[col_name]
             if window is None:
                 signal_window = signal[index:-1]
             else:
@@ -615,7 +615,7 @@ class GaitData(object):
         samples = []
         for i, lead_val in enumerate(lead):
             try:
-                gait_cycle_slice = self.raw_data[lead_val:trail[i]]
+                gait_cycle_slice = self.data[lead_val:trail[i]]
             except IndexError:
                 pass
             else:
@@ -647,7 +647,7 @@ class GaitData(object):
 
         for i, lead_val in enumerate(lead):
             try:
-                data_frame = self.raw_data[lead_val:trail[i]]
+                data_frame = self.data[lead_val:trail[i]]
             except IndexError:
                 pass
             else:
@@ -688,7 +688,7 @@ class GaitData(object):
 
     def time_derivative(self, col_names, new_col_names=None):
         """Numerically differentiates the specified columns with respect to
-        the time index and adds the new columns to `self.raw_data`.
+        the time index and adds the new columns to `self.data`.
 
         Parameters
         ==========
@@ -707,9 +707,9 @@ class GaitData(object):
                              col_names]
 
         for col_name, new_col_name in zip(col_names, new_col_names):
-            self.raw_data[new_col_name] = \
-                process.derivative(self.raw_data.index.values.astype(float),
-                                   self.raw_data[col_name].values,
+            self.data[new_col_name] = \
+                process.derivative(self.data.index.values.astype(float),
+                                   self.data[col_name].values,
                                    method='combination')
 
     def save(self, filename):
