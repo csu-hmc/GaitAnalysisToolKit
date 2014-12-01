@@ -1,5 +1,6 @@
-Bump the version in gait_analysis_toolkit/__init__.py
-Make release notes in README.rst
-git tag -a vX.X.X -m "Version X.X.X"
-python setup.py regsiter sdist upload
-Make sure the latest version is available on readthedocs.org
+1. Make release notes in README.rst
+2. Bump the version in gaitanalysis/version.py, for example 0.1.0dev to 0.1.0.
+3. git tag -a vX.X.X -m "Version X.X.X"
+4. python setup.py regsiter sdist upload
+5. Make sure the latest version is available on readthedocs.org
+6. Bump the version in the git repo to one with "dev" appended.
