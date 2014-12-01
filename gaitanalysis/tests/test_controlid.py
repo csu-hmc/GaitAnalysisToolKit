@@ -5,7 +5,7 @@
 import numpy as np
 from numpy import testing
 import pandas
-from pandas.util.testing import assert_panelnd_equal
+from pandas.util.testing import assert_frame_equal
 
 # local
 from ..controlid import SimpleControlSolver
@@ -80,10 +80,14 @@ class TestSimpleControlSolver():
 
     def test_init(self):
 
-        assert_panelnd_equal(self.all_cycles.iloc[:self.m],
-                             self.solver.identification_data)
-        assert_panelnd_equal(self.all_cycles.iloc[self.m:],
-                             self.solver.validation_data)
+        # TODO : assert_panelnd_equal would be ideal but it isn't supported
+        # in Pandas 0.12.0.
+        for key, cycle in self.all_cycles.iloc[:self.m].iteritems():
+            assert_frame_equal(cycle, self.solver.identification_data[key])
+
+        for key, cycle in self.all_cycles.iloc[self.m:].iteritems():
+            assert_frame_equal(cycle, self.solver.validation_data[key])
+
         assert self.solver.n == self.n
         assert self.solver.m == self.m
 

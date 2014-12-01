@@ -8,7 +8,7 @@ import os
 import numpy as np
 from numpy import testing
 import pandas
-from pandas.util.testing import assert_frame_equal, assert_panelnd_equal
+from pandas.util.testing import assert_frame_equal
 from nose.tools import assert_raises
 
 # local
@@ -316,8 +316,8 @@ class TestGaitData():
         gait_data_from_file = GaitData('some_data.h5')
 
         assert_frame_equal(gait_data.raw_data, gait_data_from_file.raw_data)
-        assert_panelnd_equal(gait_data.gait_cycles,
-                             gait_data_from_file.gait_cycles)
+        for key, cycle in gait_data.gait_cycles.iteritems():
+            assert_frame_equal(cycle, gait_data_from_file.gait_cycles[key])
         assert_frame_equal(gait_data.gait_cycle_stats,
                            gait_data_from_file.gait_cycle_stats)
         assert all(gait_data.strikes['right'] ==

@@ -467,9 +467,15 @@ class TestDFlowData():
                 self.mocap_data_frame.ix[index:index + self.length_missing[j],
                                          signal] = s.iloc[index]
 
-        self.mocap_data_frame.to_csv(self.path_to_mocap_data_file, sep='\t',
-                                     float_format='%1.6f', index=False,
-                                     columns=self.mocap_labels_with_hbm)
+        # The kwarg 'cols' is being deprecated and a warning is issued in
+        # 0.15, but in 0.12 columns is not supported. I haven't checked 0.13
+        # or 0.14.
+        kwargs = {'sep': '\t', 'float_format': '%1.6f', 'index': False}
+        if LooseVersion(pandas.__version__) >= LooseVersion('0.15.0'):
+            kwargs['columns'] = self.mocap_labels_with_hbm
+        else:
+            kwargs['cols'] = self.mocap_labels_with_hbm
+        self.mocap_data_frame.to_csv(self.path_to_mocap_data_file, **kwargs)
 
     def create_sample_compensation_file(self):
 
@@ -504,9 +510,16 @@ class TestDFlowData():
                 self.delsys_labels
                 )
 
+        # The kwarg 'cols' is being deprecated and a warning is issued in
+        # 0.15, but in 0.12 columns is not supported. I haven't checked 0.13
+        # or 0.14.
+        kwargs = {'sep': '\t', 'float_format': '%1.6f', 'index': False}
+        if LooseVersion(pandas.__version__) >= LooseVersion('0.15.0'):
+            kwargs['columns'] = cols
+        else:
+            kwargs['cols'] = cols
         self.compensation_data_frame.to_csv(self.path_to_compensation_data_file,
-                                            sep='\t', float_format='%1.6f',
-                                            index=False, columns=cols)
+                                            **kwargs)
 
     def create_sample_meta_data_file(self):
         """We will have an optional YAML file containing meta data for
@@ -550,11 +563,17 @@ class TestDFlowData():
         record_data['RightBeltSpeed'] = np.random.random(len(self.record_time))
 
         self.record_data_frame = pandas.DataFrame(record_data)
+
+        # The kwarg 'cols' is being deprecated and a warning is issued in
+        # 0.15, but in 0.12 columns is not supported. I haven't checked 0.13
+        # or 0.14.
+        kwargs = {'sep': '\t', 'float_format': '%1.6f', 'index': False}
+        if LooseVersion(pandas.__version__) >= LooseVersion('0.15.0'):
+            kwargs['columns'] = ['Time', 'LeftBeltSpeed', 'RightBeltSpeed']
+        else:
+            kwargs['cols'] = ['Time', 'LeftBeltSpeed', 'RightBeltSpeed']
         self.record_data_frame.to_csv(self.path_to_record_data_file,
-                                      sep='\t', float_format='%1.6f',
-                                      index=False,
-                                      columns=['Time', 'LeftBeltSpeed',
-                                               'RightBeltSpeed'])
+                                      **kwargs)
 
         event_template = "#\n# EVENT {} - COUNT {}\n#\n"
 
