@@ -492,9 +492,9 @@ class GaitData(object):
 
             signal = self.data[col_name]
             if window is None:
-                signal_window = signal[index:-1]
+                signal_window = signal.iloc[index:-1]
             else:
-                signal_window = signal[index:index + window]
+                signal_window = signal.iloc[index:index + window]
 
             ax.plot(time_window, signal_window, label="_nolegend_",
                     **curve_kwargs)
