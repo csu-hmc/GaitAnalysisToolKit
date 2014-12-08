@@ -282,6 +282,12 @@ Git Notes
 Release Notes
 =============
 
+0.1.1
+-----
+
+- Fixed installation issue where the octave and data files were not included in
+  the installation directory.
+
 0.1.0
 -----
 
