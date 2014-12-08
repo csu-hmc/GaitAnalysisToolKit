@@ -282,6 +282,11 @@ Git Notes
 Release Notes
 =============
 
+0.1.2
+-----
+
+- Fixed bug preventing GaitData.plot_grf_landmarks from working.
+
 0.1.1
 -----
 
