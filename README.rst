@@ -286,6 +286,7 @@ Release Notes
 -----
 
 - Fixed bug preventing GaitData.plot_grf_landmarks from working.
+- Removed inverse_data.mat from the source distribution.
 
 0.1.1
 -----
