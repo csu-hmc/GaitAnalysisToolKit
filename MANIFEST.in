@@ -1,7 +1,11 @@
-include gaitanalysis/tests/data/*
+# Note that this is only included in source distributions and doesn't
+# necessarily have anything to do with what is installed.
+include bin/*
 include docs/*.rst
 include docs/*.png
 include docs/Makefile
 include docs/conf.py
-include bin/*
-recursive-include gaitanalysis/octave *.m *.txt
+include gaitanalysis/tests/data/*.csv
+include gaitanalysis/tests/data/*.yml
+include gaitanalysis/tests/data/*.txt
+recursive-include gaitanalysis/octave *.m *.txt *.mat

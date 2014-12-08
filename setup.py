@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from os.path import join
+
 from setuptools import setup, find_packages
 
 exec(open('gaitanalysis/version.py').read())
@@ -8,6 +10,21 @@ exec(open('gaitanalysis/version.py').read())
 description = \
     """Various tools for gait analysis used at the Cleveland State
 University Human Motion and Control Lab."""
+
+octave_sub_dirs = ['2d_inverse_dynamics',
+                   join('2d_inverse_dynamics', 'test'),
+                   'inertial_compensation',
+                   join('inertial_compensation', 'test'),
+                   'mmat',
+                   'soder',
+                   'time_delay']
+
+file_type_globs = ['*.m', '*.mat', '*.txt']
+
+octave_rel_paths = []
+for sub in octave_sub_dirs:
+    for glob in file_type_globs:
+        octave_rel_paths.append(join('octave', sub, glob))
 
 setup(name='GaitAnalysisToolKit',
       author='Jason K. Moore',
@@ -29,6 +46,11 @@ setup(name='GaitAnalysisToolKit',
                               'numpydoc>=0.4'],
                       },
       scripts=['bin/dflowdata'],
+      # The following ensures that any of these files are installed to the
+      # system location.
+      package_data={'gaitanalysis': octave_rel_paths,
+                    'gaitanalysis.tests': [join('data', glob)
+                              for glob in ['*.txt', '*.csv', '*.yml']]},
       tests_require=['nose>1.3.0'],
       test_suite='nose.collector',
       long_description=open('README.rst').read(),
