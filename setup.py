@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
 from os.path import join
 
 from setuptools import setup, find_packages
@@ -26,6 +27,19 @@ for sub in octave_sub_dirs:
     for glob in file_type_globs:
         octave_rel_paths.append(join('octave', sub, glob))
 
+install_requires = ['numpy>=1.6.1',
+                    'scipy>=0.9.0',
+                    'matplotlib>=1.1.0',
+                    'tables>=2.3.1',
+                    'pandas>=0.12.0',
+                    'pyyaml>=3.10',
+                    'DynamicistToolKit>=0.3.5']
+
+if sys.platform == "win32":
+    install_requires.append('oct2py>=2.4.2')
+else:
+    install_requires.append('oct2py>=1.2.0')
+
 setup(name='GaitAnalysisToolKit',
       author='Jason K. Moore',
       author_email='moorepants@gmail.com',
@@ -34,14 +48,7 @@ setup(name='GaitAnalysisToolKit',
       description=description,
       license='LICENSE.txt',
       packages=find_packages(),
-      install_requires=['numpy>=1.6.1',
-                        'scipy>=0.9.0',
-                        'matplotlib>=1.1.0',
-                        'tables>=2.3.1',
-                        'pandas>=0.12.0',
-                        'pyyaml>=3.10',
-                        'DynamicistToolKit>=0.3.5',
-                        'oct2py>=1.2.0'],
+      install_requires=install_requires,
       extras_require={'doc': ['sphinx>=1.1.3',
                               'numpydoc>=0.4'],
                       },
