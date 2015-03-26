@@ -3,6 +3,8 @@
 
 # standard library
 import os
+from collections import namedtuple
+import warnings
 
 # external libraries
 import numpy as np
@@ -1036,3 +1038,278 @@ def plot_gait_cycles(gait_cycles, *col_names, **kwargs):
     ax.set_xlabel('Percent of Gait Cycle [%]')
 
     return axes
+
+
+def lower_extremity_2d_inverse_dynamics(time,
+                                        marker_positions,
+                                        marker_velocities,
+                                        marker_accelerations,
+                                        force_plate_values,
+                                        g=9.81):
+    """Returns the 2D inverse dynamics of a single lower limb.
+
+    Parameters
+    ==========
+    time: array_like, shape(N,)
+        Time stamps for the marker and force plate data in seconds.
+    marker_positions: array_like, shape(N, 12)
+        The X and Y coordinates of the six markers in meters given as
+        alternating columns: [X0, Y0, X1, Y1, ..., X5, Y5].
+    marker_velocities: array_like, shape(N, 12)
+        The rate of change of the X and Y coordinates of the six markers in
+        meters per second.
+    marker_accelerations: array_like, shape(N, 12)
+        The rate of change of the X and Y velocities of the six markers in
+        meters per second per second.
+    force_plate_values: array_like, shape(N, 3)
+        Normalized loads applied to foot [Fx, Fy, Mz] in N/kg (normalized to
+        body mass).
+    g : float
+        Acceleration due to gravity in meters per second per second.
+
+    Returns
+    =======
+    joint_angles: ndarray, shape(N, 3)
+        Joint angles in three joints ankle, knee, hip in radians.
+    joint_angular_rates: ndarray, shape(N, 3)
+        Angular velocities in three joints (rad/s)
+    joint_moments: ndarray, shape(N, 3)
+        Moments in three joints, (Nm per kg body mass)
+    joint_forces:  (Nsamples x 6)
+        Forces (Fx,Fy) in three joints, (N per kg body mass)
+
+    Notes
+    =====
+
+    Coordinate system:
+      X is forward (direction of walking), Y is up
+
+    Markers:
+      0: Shoulder
+      1: Greater trochanter
+      2: Lateral epicondyle of knee
+      3: Lateral malleolus
+      4: Heel (placed at same height as marker 6)
+      5: Head of 5th metatarsal
+
+    Joints:
+      hip, knee, ankle
+      sign convention for angles and moments: hip flexion, knee flexion,
+      ankle plantarflexion are positive
+
+    References
+    ==========
+
+    Method:
+       Winter, DA (2005) Biomechanics of Human Movement.
+
+
+    """
+
+    num_markers = 6
+    num_coordinates = 2 * num_markers
+    num_force_plate_channels = 3
+    num_segments = 4
+    num_samples = time.shape[0]
+
+    # define the body segments
+    #   column 1: proximal marker
+    #   column 2: distal marker
+    #   column 3: joint marker (at proximal end)
+    #   column 4: mass as fraction of body mass (from Winter book)
+    #   column 5: center of mass as fraction of length (from Winter book)
+    #   column 6: radius of gyration as fraction of length (from Winter book)
+    #   column 7: +1(-1) if positive angle/moment in prox, joint corresponds
+    #   to counterclockwise(clockwise) rotation of segment
+
+    Segment = namedtuple('Segment', ['name',
+                                     'num',
+                                     'prox_marker_idx',
+                                     'dist_marker_idx',
+                                     'prox_joint_marker_idx',
+                                     'normalized_mass',
+                                     'mass_center_fraction',
+                                     'radius_of_gyration_fraction',
+                                     'sign'])
+
+    segments = [Segment('torso', 0, 0, 1, np.nan, np.nan, np.nan, np.nan, np.nan),
+                Segment('thigh', 1, 1, 2, 1, 0.1000, 0.433, 0.323,  1),
+                Segment('shank', 2, 2, 3, 2, 0.0465, 0.433, 0.302, -1),
+                Segment('foot',  3, 4, 5, 3, 0.0145, 0.500, 0.475, -1)]
+
+    if time.shape[0] != marker_positions.shape[0]:
+        msg = ('The number of samples in marker data is not the same as '
+               'number of time stamps.')
+        raise ValueError(msg)
+
+    if time.shape[0] != marker_velocities.shape[0]:
+        msg = ('The number of samples in marker data is not the same as '
+               'number of time stamps.')
+        raise ValueError(msg)
+
+    if time.shape[0] != marker_accelerations.shape[0]:
+        msg = ('The number of samples in marker data is not the same as '
+               'number of time stamps.')
+        raise ValueError(msg)
+
+    if time.shape[0] != force_plate_values.shape[0]:
+        msg = ('The number of samples in force plate data is not the same as '
+               'number of time stamps.')
+        raise ValueError(msg)
+
+    if marker_positions.shape[1] != num_coordinates:
+        msg = 'The number of columns in mocap data is not correct.'
+        raise ValueError(msg)
+
+    if force_plate_values.shape[1] != num_force_plate_channels:
+        msg = 'The number of columns in force plate data is not correct.'
+        raise ValueError(msg)
+
+    seg_lengths = np.zeros(num_segments)
+
+    seg_com_x_pos = np.zeros((num_samples, num_segments))
+    seg_com_y_pos = np.zeros((num_samples, num_segments))
+    seg_com_x_acc = np.zeros((num_samples, num_segments))
+    seg_com_y_acc = np.zeros((num_samples, num_segments))
+
+    seg_theta = np.zeros((num_samples, num_segments))
+    seg_omega = np.zeros((num_samples, num_segments))
+    seg_alpha = np.zeros((num_samples, num_segments))
+
+    for i, segment in enumerate(segments):
+
+        prox_x_idx = 2 * segment.prox_marker_idx
+        prox_y_idx = prox_x_idx + 2
+
+        prox_pos = marker_positions[:, prox_x_idx:prox_y_idx]
+        prox_vel = marker_velocities[:, prox_x_idx:prox_y_idx]
+        prox_acc = marker_accelerations[:, prox_x_idx:prox_y_idx]
+
+        dist_x_idx = 2 * segment.dist_marker_idx
+        dist_y_idx = dist_x_idx + 2
+
+        dist_pos = marker_positions[:, dist_x_idx:dist_y_idx]
+        dist_vel = marker_velocities[:, dist_x_idx:dist_y_idx]
+        dist_acc = marker_accelerations[:, dist_x_idx:dist_y_idx]
+
+        # vector R points from proximal to distal marker
+        R_pos = dist_pos - prox_pos
+        R_vel = dist_vel - prox_vel
+        R_acc = dist_acc - prox_acc
+
+        # calculate segment center of mass position and segment orientation
+        # angle, and 1st and 2nd derivatives
+
+        seg_com_pos = prox_pos + segment.mass_center_fraction * R_pos
+
+        seg_com_x_pos[:, i] = seg_com_pos[:, 0]
+        seg_com_y_pos[:, i] = seg_com_pos[:, 1]
+
+        seg_com_acc = prox_acc + segment.mass_center_fraction * R_acc
+
+        seg_com_x_acc[:, i] = seg_com_acc[:, 0]
+        seg_com_y_acc[:, i] = seg_com_acc[:, 1]
+
+        # orientation of the vector R, unwrap removes -pi to pi discontinuities
+        seg_theta[:, i] = np.unwrap(np.arctan2(R_pos[:, 1], R_pos[:, 0]))
+
+        # analytical time derivative of segment angle
+        seg_omega[:, i] = ((R_pos[:, 0] * R_vel[:, 1] -
+                            R_pos[:, 1] * R_vel[:, 0]) /
+                           (R_pos[:, 1]**2 + R_pos[:, 0]**2))
+
+        # analytical time derivative of segment angular velocity
+        seg_alpha[:, i] = ((R_pos[:, 0] * R_acc[:, 1] - R_pos[:, 1] *
+                            R_acc[:, 0]) / (R_pos[:, 1]**2 + R_pos[:, 0]**2)
+                           - 2.0 * (R_pos[:, 0] * R_vel[:, 1] - R_pos[:, 1]
+                                    * R_vel[:, 0]) *
+                           (R_pos[:, 1] * R_vel[:, 1] + R_pos[:, 0] *
+                            R_vel[:, 0]) / (R_pos[:, 1]**2 + R_pos[:, 0]**2)**2)
+
+        seg_length = np.sqrt(R_pos[:, 0]**2 + R_pos[:, 1]**2)
+        seg_lengths[i] = seg_length.mean()
+
+        if np.max(np.abs(seg_length - seg_lengths[i])) > 0.1:
+            msg = ('Error detected while processing segment {}\n'
+                   'Segment length changed by more than 0.1 meters')
+            with warnings.catch_warnings():
+                warnings.simplefilter('always')
+                warnings.warn(msg.format(i), Warning)
+
+    joint_angles = np.zeros((num_samples, num_segments - 1))
+    joint_angular_rates = np.zeros((num_samples, num_segments - 1))
+    joint_moments = np.zeros((num_samples, num_segments - 1))
+    joint_forces = np.zeros((num_samples, 2 * (num_segments - 1)))
+
+    # do the inverse dynamics, starting at the foot, but not for the torso
+    # segment
+    for segment in reversed(segments[1:]):
+
+        i = segment.num
+
+        # compute vectors P and D from center of mass to distal and proximal
+        # joint
+
+        prox_joint_x_idx = 2 * segment.prox_joint_marker_idx
+        prox_joint_y_idx = prox_joint_x_idx - 1
+
+        Px = marker_positions[:, prox_joint_x_idx] - seg_com_x_pos[:, i]
+        Py = marker_positions[:, prox_joint_y_idx] - seg_com_y_pos[:, i]
+
+        if segment.name == 'foot':
+            # for the last segment, distal joint is the force plate data,
+            # applied to foot at global origin
+
+            Dx = -seg_com_x_pos[:, i]
+            Dy = -seg_com_y_pos[:, i]
+
+            dist_force_x = force_plate_values[:, 0]
+            dist_force_y = force_plate_values[:, 1]
+            dist_moment = force_plate_values[:, 2]
+        else:
+            # marker for distal joint of this segment (=proximal joint of
+            # next segment)
+
+            dist_joint_x_idx = 2 * segments[i - 1].prox_joint_marker_idx
+            dist_joint_y_idx = dist_joint_x_idx - 1
+
+            Dx = marker_positions[:, dist_joint_x_idx] - seg_com_x_pos[:, i]
+            Dy = marker_positions[:, dist_joint_y_idx] - seg_com_y_pos[:, i]
+
+            # loads at the distal joint are the opposite of the proximal
+            # loads in the previous segment
+            dist_force_x = -prox_force_x
+            dist_force_y = -prox_force_y
+            dist_moment = -prox_moment
+
+        mass = segment.normalized_mass
+        radius_of_gyration = segment.radius_of_gyration_fraction * seg_lengths[i]
+        inertia = mass * radius_of_gyration**2
+
+        # solve force and moment at proximal joint from the Newton-Euler
+        # equations
+        prox_force_x = mass * seg_com_x_acc[:, i] - dist_force_x
+        prox_force_y = (mass * seg_com_y_acc[:, i] -
+                        dist_force_y + mass * g)
+        prox_moment  = (inertia * seg_alpha[:, i] - dist_moment
+                        - (Dx * dist_force_y - Dy * dist_force_x) -
+                        (Px * prox_force_y - Py * prox_force_x))
+
+        # and store proximal joint motions and loads in the output variables
+
+        # joint index (1, 2, or 3) for the proximal joint of segment i
+        j = i - 1
+
+        joint_angles[:, j] = segment.sign * (seg_theta[:, i] -
+                                             seg_theta[:, i - 1])
+
+        joint_angular_rates[:, j] = segment.sign * (seg_omega[:, i] -
+                                                    seg_omega[:, i - 1])
+
+        joint_moments[:, j] = segment.sign * prox_moment
+
+        joint_forces[:, 2 * j - 1] = prox_force_x
+
+        joint_forces[:, 2 * j] = prox_force_y
+
+        return joint_angles, joint_angular_rates, joint_moments, joint_forces
