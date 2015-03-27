@@ -299,6 +299,26 @@ class TestGaitData():
 
         assert_raises(ValueError, gait_data.plot_gait_cycles)
 
+    def test_low_pass_filter(self):
+
+        gait_data = GaitData(self.data_frame)
+
+        cols = ['Right Knee Angle', 'Right Knee Moment']
+
+        gait_data.low_pass_filter(cols, 10.0)
+
+        fil_cols = ['Filtered {}'.format(c) for c in cols]
+
+        for c in fil_cols:
+            assert c in gait_data.data.columns
+
+        gait_data.low_pass_filter(cols, 10.0, new_col_names=['a', 'b'])
+
+        for c in ['a', 'b']:
+            assert c in gait_data.data.columns
+
+        gait_data.low_pass_filter(cols, 10.0, order=3)
+
     def test_save_load(self):
 
         gait_data = GaitData(self.data_frame)

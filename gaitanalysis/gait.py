@@ -716,6 +716,42 @@ class GaitData(object):
                                    self.data[col_name].values,
                                    method='combination')
 
+    def low_pass_filter(self, col_names, cutoff, new_col_names=None,
+                        order=2):
+        """Low pass filters the specified columns with a Butterworth filter.
+
+        Parameters
+        ==========
+        col_names : list of strings
+            The column names for the time series which should be numerically
+            time differentiated.
+        cutoff : float
+            The desired low pass cutoff frequency in Hertz.
+        new_col_names : list of strings, optional
+            The desired new column name(s) for the filtered series. If None,
+            then a default name of `Filtered <origin column name>` will be
+            used.
+        order : int
+            The order of the Butterworth filter.
+
+        """
+
+        if new_col_names is None:
+            new_col_names = ['Filtered {}'.format(c) for c in col_names]
+
+        time = self.data.index.values.astype(float)
+        sample_rate = 1.0 / np.mean(np.diff(time))
+
+        filtered_data = process.butterworth(self.data[col_names].values,
+                                            cutoff, sample_rate,
+                                            order=order, axis=0)
+
+        # TODO : Ideally these could be added to the DataFrame in one
+        # command.
+
+        for i, col in enumerate(new_col_names):
+            self.data[col] = filtered_data[:, i]
+
     def save(self, filename):
         """Saves data to disk via HDF5 (PyTables).
 
