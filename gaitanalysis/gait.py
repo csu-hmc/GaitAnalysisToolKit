@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # standard library
-import os
+from time import time as clock
 from collections import namedtuple
 import warnings
 
@@ -12,7 +12,6 @@ from scipy.integrate import simps
 import matplotlib.pyplot as plt
 import pandas
 from dtk import process
-from oct2py import octave
 
 # local
 from .utils import _percent_formatter
@@ -209,16 +208,9 @@ class GaitData(object):
         the inverse dynamics. You should pass in unfiltered data.
 
         """
-        this_files_dir = os.path.split(__file__)[0]
-        m_file_directory = os.path.abspath(os.path.join(this_files_dir,
-                                                        'octave',
-                                                        '2d_inverse_dynamics'))
-        octave.addpath(m_file_directory)
-
-        options = {'freq': low_pass_cutoff}
 
         time = self.data.index.values.astype(float)
-        time = time.reshape((len(time), 1))  # octave wants a column vector
+        sample_rate = 1.0 / np.mean(np.diff(time))
 
         marker_sets = [left_leg_markers, right_leg_markers]
         force_sets = [left_leg_forces, right_leg_forces]
@@ -232,18 +224,25 @@ class GaitData(object):
         for side_label, markers, forces in zip(side_labels, marker_sets,
                                                force_sets):
 
-            marker_array = self.data[markers].values.copy()
-            normalized_force_array = \
-                self.data[forces].values.copy() / body_mass
+            t0 = clock()
+            marker_pos = self.data[markers].values.copy()
+            marker_pos = process.butterworth(marker_pos, low_pass_cutoff,
+                                             sample_rate, axis=0)
+            marker_vel = process.derivative(time, marker_pos,
+                                            method='combination')
+            marker_acc = process.derivative(time, marker_vel,
+                                            method='combination')
+            force_array = \
+                process.butterworth(self.data[forces].values.copy(),
+                                    low_pass_cutoff, sample_rate, axis=0)
+            normalized_force_array = force_array / body_mass
 
-            # oct2py doesn't allow multiple outputs to be stored in a tuple
-            # like python, so you have to output each variable
-            # independently
-            angles, velocities, moments, forces = \
-                octave.leg2d(time, marker_array, normalized_force_array,
-                             options)
-
-            dynamics = angles, velocities, moments, forces
+            dynamics = lower_extremity_2d_inverse_dynamics(time, marker_pos,
+                                                           marker_vel,
+                                                           marker_acc,
+                                                           normalized_force_array)
+            t1 = clock()
+            print(t1 - t0)
 
             fours = zip(dynamics, dynamic_labels, scale_factors)
 
