@@ -158,6 +158,9 @@ class GaitData(object):
         marker_vel = process.derivative(time, marker_pos,
                                         method='combination')
 
+        marker_vel = process.butterworth(marker_vel, cutoff, sample_rate,
+                                         axis=0)
+
         marker_acc = process.derivative(time, marker_vel,
                                         method='combination')
 
