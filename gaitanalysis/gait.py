@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # standard library
-from time import time as clock
 from collections import namedtuple
 import warnings
 
 # external libraries
 import numpy as np
 from scipy.integrate import simps
+from scipy.signal import firwin, filtfilt
 import matplotlib.pyplot as plt
 import pandas
 from dtk import process
@@ -147,6 +147,29 @@ class GaitData(object):
             f.close()
             self.load(data)
 
+    def _leg2d(self, time, marker_values, normalized_force_plate_values,
+               cutoff, sample_rate):
+        """This method effectively does the same thing that the Octave
+        routine does."""
+
+        marker_pos = process.butterworth(marker_values, cutoff, sample_rate,
+                                         axis=0)
+
+        marker_vel = process.derivative(time, marker_pos,
+                                        method='combination')
+
+        marker_acc = process.derivative(time, marker_vel,
+                                        method='combination')
+
+        force_array = process.butterworth(normalized_force_plate_values,
+                                          cutoff, sample_rate, axis=0)
+
+        inv_dyn = lower_extremity_2d_inverse_dynamics
+
+        dynamics = inv_dyn(time, marker_pos, marker_vel, marker_acc,
+                           force_array)
+        return dynamics
+
     def inverse_dynamics_2d(self, left_leg_markers, right_leg_markers,
                             left_leg_forces, right_leg_forces, body_mass,
                             low_pass_cutoff):
@@ -224,25 +247,11 @@ class GaitData(object):
         for side_label, markers, forces in zip(side_labels, marker_sets,
                                                force_sets):
 
-            t0 = clock()
-            marker_pos = self.data[markers].values.copy()
-            marker_pos = process.butterworth(marker_pos, low_pass_cutoff,
-                                             sample_rate, axis=0)
-            marker_vel = process.derivative(time, marker_pos,
-                                            method='combination')
-            marker_acc = process.derivative(time, marker_vel,
-                                            method='combination')
-            force_array = \
-                process.butterworth(self.data[forces].values.copy(),
-                                    low_pass_cutoff, sample_rate, axis=0)
-            normalized_force_array = force_array / body_mass
+            marker_vals = self.data[markers].values.copy()
+            force_vals = self.data[forces].values.copy() / body_mass
 
-            dynamics = lower_extremity_2d_inverse_dynamics(time, marker_pos,
-                                                           marker_vel,
-                                                           marker_acc,
-                                                           normalized_force_array)
-            t1 = clock()
-            print(t1 - t0)
+            dynamics = self._leg2d(time, marker_vals, force_vals,
+                                   low_pass_cutoff, sample_rate)
 
             fours = zip(dynamics, dynamic_labels, scale_factors)
 
@@ -355,12 +364,11 @@ class GaitData(object):
         else:
             raise ValueError('min_time out of range.')
 
-
         if method is not 'accel' and method is not 'force':
             raise ValueError('{} is not a valid method'.format(method))
 
-        func = {'force' : gait_landmarks_from_grf,
-                'accel' : gait_landmarks_from_accel}
+        func = {'force': gait_landmarks_from_grf,
+                'accel': gait_landmarks_from_accel}
 
         right_strikes, left_strikes, right_offs, left_offs = \
             func[method](time[self.min_idx:self.max_idx],
@@ -398,7 +406,6 @@ class GaitData(object):
                                 num_cycles_to_plot=num_cycles_to_plot)
 
         return right_strikes, left_strikes, right_offs, left_offs
-
 
     def plot_landmarks(self, col_names, side, event='both', index=0,
                        window=None, num_cycles_to_plot=None,
@@ -642,7 +649,7 @@ class GaitData(object):
         gait_cycle_stats = {'Number of Samples': [],
                             'Stride Duration': [],
                             'Stride Frequency': [],
-                           }
+                            }
 
         if belt_speed_column is not None:
             gait_cycle_stats['Stride Length'] = []
@@ -880,6 +887,7 @@ def gait_landmarks_from_grf(time, right_grf, left_grf,
 
     return right_foot_strikes, left_foot_strikes, right_toe_offs, left_toe_offs
 
+
 def gait_landmarks_from_accel(time, right_accel, left_accel, threshold=0.33, **kwargs):
     """
     Obtain right and left foot strikes from the time series data of accelerometers placed on the heel.
@@ -913,18 +921,16 @@ def gait_landmarks_from_accel(time, right_accel, left_accel, threshold=0.33, **k
     # ----------------
 
     def filter(data):
-        from scipy.signal import blackman, firwin, filtfilt
 
         a = np.array([1])
 
         # 10 Hz highpass
-        n = 127; # filter order
-        Wn = 10 / (sample_rate/2) # cut-off frequency
-        window = blackman(n)
+        n = 127  # filter order
+        Wn = 10.0 / (sample_rate / 2)  # cut-off frequency
         b = firwin(n, Wn, window='blackman', pass_zero=False)
         data = filtfilt(b, a, data)
 
-        data = abs(data) # rectify signal
+        data = abs(data)  # rectify signal
 
         # 5 Hz lowpass
         Wn = 5 / (sample_rate/2)
@@ -942,7 +948,7 @@ def gait_landmarks_from_accel(time, right_accel, left_accel, threshold=0.33, **k
 
         peaks = []
         for i, spike in enumerate(ddx < 0):
-            if spike == True:
+            if spike:
                 peaks.append(i)
 
         peaks = peaks[::2]
@@ -1157,6 +1163,8 @@ def lower_extremity_2d_inverse_dynamics(time, marker_pos, marker_vel,
     # - +1(-1) if positive angle/moment in prox, joint corresponds to
     #   counterclockwise(clockwise) rotation of segment
 
+    # TODO : Create a way for the user to pass in the body segment values.
+
     Segment = namedtuple('Segment', ['name',
                                      'num',
                                      'prox_marker_idx',
@@ -1323,7 +1331,8 @@ def lower_extremity_2d_inverse_dynamics(time, marker_pos, marker_vel,
         prox_force_x = mass * seg_com_x_acc[:, i] - dist_force_x
         prox_force_y = mass * seg_com_y_acc[:, i] - dist_force_y + mass * g
 
-        radius_of_gyration = segment.radius_of_gyration_fraction * seg_lengths[i]
+        radius_of_gyration = (segment.radius_of_gyration_fraction *
+                              seg_lengths[i])
         inertia = mass * radius_of_gyration**2
 
         prox_moment = (inertia * seg_alpha[:, i] - dist_moment
