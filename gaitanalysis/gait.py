@@ -1040,11 +1040,8 @@ def plot_gait_cycles(gait_cycles, *col_names, **kwargs):
     return axes
 
 
-def lower_extremity_2d_inverse_dynamics(time,
-                                        marker_positions,
-                                        marker_velocities,
-                                        marker_accelerations,
-                                        force_plate_values,
+def lower_extremity_2d_inverse_dynamics(time, marker_pos, marker_vel,
+                                        marker_acc, force_plate_values,
                                         g=9.81):
     """Returns the 2D inverse dynamics of a single lower limb.
 
@@ -1052,13 +1049,13 @@ def lower_extremity_2d_inverse_dynamics(time,
     ==========
     time: array_like, shape(N,)
         Time stamps for the marker and force plate data in seconds.
-    marker_positions: array_like, shape(N, 12)
+    marker_pos: array_like, shape(N, 12)
         The X and Y coordinates of the six markers in meters given as
         alternating columns: [X0, Y0, X1, Y1, ..., X5, Y5].
-    marker_velocities: array_like, shape(N, 12)
+    marker_vel: array_like, shape(N, 12)
         The rate of change of the X and Y coordinates of the six markers in
         meters per second.
-    marker_accelerations: array_like, shape(N, 12)
+    marker_acc: array_like, shape(N, 12)
         The rate of change of the X and Y velocities of the six markers in
         meters per second per second.
     force_plate_values: array_like, shape(N, 3)
@@ -1070,13 +1067,14 @@ def lower_extremity_2d_inverse_dynamics(time,
     Returns
     =======
     joint_angles: ndarray, shape(N, 3)
-        Joint angles in three joints ankle, knee, hip in radians.
+        Joint angles in three joints: hip, knee, ankle in radians.
     joint_angular_rates: ndarray, shape(N, 3)
-        Angular velocities in three joints (rad/s)
-    joint_moments: ndarray, shape(N, 3)
-        Moments in three joints, (Nm per kg body mass)
+        Angular velocities in three joints: hip, knee, ankle in radians per
+        second.
+    joint_torques: ndarray, shape(N, 3)
+        Torques in three joints: hip, knee, ankle in  Nm per kg body mass.
     joint_forces:  (Nsamples x 6)
-        Forces (Fx,Fy) in three joints, (N per kg body mass)
+        Forces (Fx, Fy) in three joints, (N per kg body mass)
 
     Notes
     =====
@@ -1106,21 +1104,23 @@ def lower_extremity_2d_inverse_dynamics(time,
 
     """
 
+    # TODO : Remove the time variable, it is not needed.
+
     num_markers = 6
     num_coordinates = 2 * num_markers
     num_force_plate_channels = 3
     num_segments = 4
     num_samples = time.shape[0]
 
-    # define the body segments
-    #   column 1: proximal marker
-    #   column 2: distal marker
-    #   column 3: joint marker (at proximal end)
-    #   column 4: mass as fraction of body mass (from Winter book)
-    #   column 5: center of mass as fraction of length (from Winter book)
-    #   column 6: radius of gyration as fraction of length (from Winter book)
-    #   column 7: +1(-1) if positive angle/moment in prox, joint corresponds
-    #   to counterclockwise(clockwise) rotation of segment
+    # define the body segments with these properties:
+    # - proximal marker
+    # - distal marker
+    # - joint marker (at proximal end)
+    # - mass as fraction of body mass (from Winter book)
+    # - center of mass as fraction of length (from Winter book)
+    # - radius of gyration as fraction of length (from Winter book)
+    # - +1(-1) if positive angle/moment in prox, joint corresponds to
+    #   counterclockwise(clockwise) rotation of segment
 
     Segment = namedtuple('Segment', ['name',
                                      'num',
@@ -1137,17 +1137,17 @@ def lower_extremity_2d_inverse_dynamics(time,
                 Segment('shank', 2, 2, 3, 2, 0.0465, 0.433, 0.302, -1),
                 Segment('foot',  3, 4, 5, 3, 0.0145, 0.500, 0.475, -1)]
 
-    if time.shape[0] != marker_positions.shape[0]:
+    if time.shape[0] != marker_pos.shape[0]:
         msg = ('The number of samples in marker data is not the same as '
                'number of time stamps.')
         raise ValueError(msg)
 
-    if time.shape[0] != marker_velocities.shape[0]:
+    if time.shape[0] != marker_vel.shape[0]:
         msg = ('The number of samples in marker data is not the same as '
                'number of time stamps.')
         raise ValueError(msg)
 
-    if time.shape[0] != marker_accelerations.shape[0]:
+    if time.shape[0] != marker_acc.shape[0]:
         msg = ('The number of samples in marker data is not the same as '
                'number of time stamps.')
         raise ValueError(msg)
@@ -1157,7 +1157,7 @@ def lower_extremity_2d_inverse_dynamics(time,
                'number of time stamps.')
         raise ValueError(msg)
 
-    if marker_positions.shape[1] != num_coordinates:
+    if marker_pos.shape[1] != num_coordinates:
         msg = 'The number of columns in mocap data is not correct.'
         raise ValueError(msg)
 
@@ -1179,18 +1179,18 @@ def lower_extremity_2d_inverse_dynamics(time,
     for i, segment in enumerate(segments):
 
         prox_x_idx = 2 * segment.prox_marker_idx
-        prox_y_idx = prox_x_idx + 2
+        prox_y_idx = prox_x_idx + 1
 
-        prox_pos = marker_positions[:, prox_x_idx:prox_y_idx]
-        prox_vel = marker_velocities[:, prox_x_idx:prox_y_idx]
-        prox_acc = marker_accelerations[:, prox_x_idx:prox_y_idx]
+        prox_pos = marker_pos[:, prox_x_idx:prox_y_idx + 1]
+        prox_vel = marker_vel[:, prox_x_idx:prox_y_idx + 1]
+        prox_acc = marker_acc[:, prox_x_idx:prox_y_idx + 1]
 
         dist_x_idx = 2 * segment.dist_marker_idx
-        dist_y_idx = dist_x_idx + 2
+        dist_y_idx = dist_x_idx + 1
 
-        dist_pos = marker_positions[:, dist_x_idx:dist_y_idx]
-        dist_vel = marker_velocities[:, dist_x_idx:dist_y_idx]
-        dist_acc = marker_accelerations[:, dist_x_idx:dist_y_idx]
+        dist_pos = marker_pos[:, dist_x_idx:dist_y_idx + 1]
+        dist_vel = marker_vel[:, dist_x_idx:dist_y_idx + 1]
+        dist_acc = marker_acc[:, dist_x_idx:dist_y_idx + 1]
 
         # vector R points from proximal to distal marker
         R_pos = dist_pos - prox_pos
@@ -1219,12 +1219,12 @@ def lower_extremity_2d_inverse_dynamics(time,
                            (R_pos[:, 1]**2 + R_pos[:, 0]**2))
 
         # analytical time derivative of segment angular velocity
-        seg_alpha[:, i] = ((R_pos[:, 0] * R_acc[:, 1] - R_pos[:, 1] *
-                            R_acc[:, 0]) / (R_pos[:, 1]**2 + R_pos[:, 0]**2)
-                           - 2.0 * (R_pos[:, 0] * R_vel[:, 1] - R_pos[:, 1]
-                                    * R_vel[:, 0]) *
-                           (R_pos[:, 1] * R_vel[:, 1] + R_pos[:, 0] *
-                            R_vel[:, 0]) / (R_pos[:, 1]**2 + R_pos[:, 0]**2)**2)
+        a_0 = R_pos[:, 0] * R_acc[:, 1] - R_pos[:, 1] * R_acc[:, 0]
+        a_1 = R_pos[:, 0] * R_vel[:, 1] - R_pos[:, 1] * R_vel[:, 0]
+        a_2 = R_pos[:, 1] * R_vel[:, 1] + R_pos[:, 0] * R_vel[:, 0]
+        a_3 = R_pos[:, 1]**2 + R_pos[:, 0]**2
+
+        seg_alpha[:, i] = a_0 / a_3 - 2.0 * a_1 * a_2 / a_3**2
 
         seg_length = np.sqrt(R_pos[:, 0]**2 + R_pos[:, 1]**2)
         seg_lengths[i] = seg_length.mean()
@@ -1251,10 +1251,10 @@ def lower_extremity_2d_inverse_dynamics(time,
         # joint
 
         prox_joint_x_idx = 2 * segment.prox_joint_marker_idx
-        prox_joint_y_idx = prox_joint_x_idx - 1
+        prox_joint_y_idx = prox_joint_x_idx + 1
 
-        Px = marker_positions[:, prox_joint_x_idx] - seg_com_x_pos[:, i]
-        Py = marker_positions[:, prox_joint_y_idx] - seg_com_y_pos[:, i]
+        Px = marker_pos[:, prox_joint_x_idx] - seg_com_x_pos[:, i]
+        Py = marker_pos[:, prox_joint_y_idx] - seg_com_y_pos[:, i]
 
         if segment.name == 'foot':
             # for the last segment, distal joint is the force plate data,
@@ -1267,14 +1267,13 @@ def lower_extremity_2d_inverse_dynamics(time,
             dist_force_y = force_plate_values[:, 1]
             dist_moment = force_plate_values[:, 2]
         else:
-            # marker for distal joint of this segment (=proximal joint of
-            # next segment)
+            # The marker at the distal joint of this segment is the same as
+            # the marker at the proximal joint of next the segment.
+            dist_joint_x_idx = 2 * segments[i + 1].prox_joint_marker_idx
+            dist_joint_y_idx = dist_joint_x_idx + 1
 
-            dist_joint_x_idx = 2 * segments[i - 1].prox_joint_marker_idx
-            dist_joint_y_idx = dist_joint_x_idx - 1
-
-            Dx = marker_positions[:, dist_joint_x_idx] - seg_com_x_pos[:, i]
-            Dy = marker_positions[:, dist_joint_y_idx] - seg_com_y_pos[:, i]
+            Dx = marker_pos[:, dist_joint_x_idx] - seg_com_x_pos[:, i]
+            Dy = marker_pos[:, dist_joint_y_idx] - seg_com_y_pos[:, i]
 
             # loads at the distal joint are the opposite of the proximal
             # loads in the previous segment
@@ -1282,22 +1281,23 @@ def lower_extremity_2d_inverse_dynamics(time,
             dist_force_y = -prox_force_y
             dist_moment = -prox_moment
 
+        # solve force and moment at proximal joint from the Newton-Euler
+        # equations
         mass = segment.normalized_mass
+
+        prox_force_x = mass * seg_com_x_acc[:, i] - dist_force_x
+        prox_force_y = mass * seg_com_y_acc[:, i] - dist_force_y + mass * g
+
         radius_of_gyration = segment.radius_of_gyration_fraction * seg_lengths[i]
         inertia = mass * radius_of_gyration**2
 
-        # solve force and moment at proximal joint from the Newton-Euler
-        # equations
-        prox_force_x = mass * seg_com_x_acc[:, i] - dist_force_x
-        prox_force_y = (mass * seg_com_y_acc[:, i] -
-                        dist_force_y + mass * g)
-        prox_moment  = (inertia * seg_alpha[:, i] - dist_moment
-                        - (Dx * dist_force_y - Dy * dist_force_x) -
-                        (Px * prox_force_y - Py * prox_force_x))
+        prox_moment = (inertia * seg_alpha[:, i] - dist_moment
+                       - (Dx * dist_force_y - Dy * dist_force_x)
+                       - (Px * prox_force_y - Py * prox_force_x))
 
         # and store proximal joint motions and loads in the output variables
 
-        # joint index (1, 2, or 3) for the proximal joint of segment i
+        # joint index (hip, knee, ankle) for the proximal joint of segment i
         j = i - 1
 
         joint_angles[:, j] = segment.sign * (seg_theta[:, i] -
@@ -1308,8 +1308,8 @@ def lower_extremity_2d_inverse_dynamics(time,
 
         joint_moments[:, j] = segment.sign * prox_moment
 
-        joint_forces[:, 2 * j - 1] = prox_force_x
+        joint_forces[:, 2 * j] = prox_force_x
 
-        joint_forces[:, 2 * j] = prox_force_y
+        joint_forces[:, 2 * j - 1] = prox_force_y
 
-        return joint_angles, joint_angular_rates, joint_moments, joint_forces
+    return joint_angles, joint_angular_rates, joint_moments, joint_forces
