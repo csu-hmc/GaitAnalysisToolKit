@@ -1,4 +1,4 @@
-function [y, yd, ydd] = myfiltfilt(t, x, f0);
+function [y, yd, ydd] = myfiltfilt(t, x, f0)
 
 % performs low pass filtering and differentiation
 % method is the same as used in HBM but bidirectional to eliminate lag
@@ -46,7 +46,7 @@ function [y, yd, ydd] = filter_batch(t,x,f0)
 		F = 4*h*a/denom;
 		y(i)  = A*y(i-1) + B*yd(i-1) + E*(x(i)+x(i-1))/2;
 		yd(i) = C*y(i-1) + D*yd(i-1) + F*(x(i)+x(i-1))/2;
-		ydd = (yd(i)-yd(i-1))/h;
+		ydd(i) = (yd(i)-yd(i-1))/h;
 	end
 end
 %===================================================================================
