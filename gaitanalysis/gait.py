@@ -147,30 +147,32 @@ class GaitData(object):
             f.close()
             self.load(data)
 
-    def _leg2d(self, time, marker_values, normalized_force_plate_values,
+    def _leg2d(self, time, marker_pos, normalized_force_plate_values,
                cutoff, sample_rate):
         """This method effectively does the same thing that the Octave
         routine does."""
 
-        marker_pos = process.butterworth(marker_values, cutoff, sample_rate,
-                                         axis=0)
-
+        # differentiate to get the marker velocities and accelerations
         marker_vel = process.derivative(time, marker_pos,
                                         method='combination')
-
-        marker_vel = process.butterworth(marker_vel, cutoff, sample_rate,
-                                         axis=0)
-
         marker_acc = process.derivative(time, marker_vel,
                                         method='combination')
 
+        # filter all the input data with the same filter
+        marker_pos = process.butterworth(marker_pos, cutoff, sample_rate,
+                                         axis=0)
+        marker_vel = process.butterworth(marker_vel, cutoff, sample_rate,
+                                         axis=0)
+        marker_acc = process.butterworth(marker_acc, cutoff, sample_rate,
+                                         axis=0)
         force_array = process.butterworth(normalized_force_plate_values,
                                           cutoff, sample_rate, axis=0)
 
+        # compute the inverse dynamics
         inv_dyn = lower_extremity_2d_inverse_dynamics
-
         dynamics = inv_dyn(time, marker_pos, marker_vel, marker_acc,
                            force_array)
+
         return dynamics
 
     def inverse_dynamics_2d(self, left_leg_markers, right_leg_markers,
