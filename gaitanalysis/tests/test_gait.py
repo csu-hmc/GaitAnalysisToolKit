@@ -11,8 +11,7 @@ import pandas
 from pandas.util.testing import assert_frame_equal
 from nose.tools import assert_raises
 from oct2py import octave
-from dtk.process import (time_vector, butterworth, derivative,
-                         coefficient_of_determination)
+from dtk.process import time_vector, butterworth, derivative
 
 # local
 from ..gait import (find_constant_speed, interpolate, GaitData,
@@ -420,6 +419,4 @@ def test_lower_extremity_2d_inverse_dynamics():
     expected_res = (angles, velocities, moments, forces)
 
     for array, expected_array in zip(res, expected_res):
-        # NOTE : This is the best check I was able to come up with to
-        # compare the time series.
-        assert coefficient_of_determination(expected_array, array) > 0.99
+        testing.assert_allclose(array, expected_array)
