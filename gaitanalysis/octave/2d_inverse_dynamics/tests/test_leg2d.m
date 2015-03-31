@@ -21,72 +21,93 @@ function test_leg2d(varargin)
 
     % load the raw data and extract time stamps, mocap data, and force plate
     % data
-    d = load([script_dir filesep 'rawdata.txt']);
+    d = load([script_dir filesep 'input.tsv']);
+
     times = d(:,1);
-    mocapdata = d(:,2:13);
-    bodymass = 67.2; % this data was from subject 7 from the HBM paper
-    fpdata = d(:,14:16)/bodymass; % normalize force plate data to body mass
+
+    mocapdata = d(:, 2:13);
+    % the GTRO marker has lots of dropout in this data, set them to nan
+    nan_tol = 1e-10;
+    mocapdata((-nan_tol < mocapdata) & (mocapdata < nan_tol)) = nan;
+
+    bodymass = 77.0;
+    fpdata = d(:, 14:16) / bodymass; % normalize force plate data to body mass
 
     % do the analysis
-    options.freq = 6; % cutoff frequency
+    options.freq = 6.0; % cutoff frequency
     [angles, velocities, moments, forces] = ...
         leg2d(times, mocapdata, fpdata, options);
 
-    load([script_dir filesep 'refresults.mat']);
+    % scale the loads back to normal
+    moments = bodymass .* moments;
+    forcess = bodymass .* forces;
 
-    expected_ang = refresults(:, 1:3);
-    expected_vel = refresults(:, 4:6);
-    expected_mom = refresults(:, 7:9);
-    expected_for= refresults(:, 10:end);
+    expected_ang = load('output_angles.tsv');
+    expected_ang = expected_ang(:, 2:4);
+
+    expected_vel = load('output_rates.tsv');
+    expected_vel = expected_vel(:, 2:4);
+
+    expected_mom = load('output_torques.tsv');
+    expected_mom = expected_mom(:, 2:4);
+
+    % TODO : See if Ton has these forces.
+    %expected_for = load('output_forces.tsv');
+    %expected_for = expected_for(:, 2:4);
 
     if do_plot
+
         jointnames = {'hip','knee','ankle'};
         figure(1)
+
         for i=1:3
+
             subplot(5, 3, i)
-            plot(times, expected_ang(:,i)*180/pi, 'k', ...
-                 times, angles(:,i)*180/pi, 'b.');
+            plot(times, rad2deg(expected_ang(:, i)), 'k', ...
+                 times, rad2deg(angles(:, i)), 'b.');
             ylabel('angle (deg)');
-            xlabel('time (s)');
             title(jointnames{i});
 
-            subplot(5, 3, 3+i)
-            plot(times, expected_vel(:,i)*180/pi, 'k', ...
-                 times, velocities(:,i)*180/pi, 'b.');
+            subplot(5, 3, 3 + i)
+            plot(times, rad2deg(expected_vel(:, i)), 'k', ...
+                 times, rad2deg(velocities(:, i)), 'b.');
             ylabel('ang.vel (deg/s)');
-            xlabel('time (s)');
 
-            subplot(5, 3, 6+i)
+            subplot(5, 3, 6 + i)
             plot(times, expected_mom(:,i), 'k', ...
                  times, moments(:,i), 'b.');
-            ylabel('moment (Nm/kg)');
-            xlabel('time (s)');
+            ylabel('moment (Nm)');
 
             % TODO : Octave doesn't plot this row for some reason.
             subplot(5, 3, 9+i)
             plot(times, expected_mom(:,i) .* expected_vel(:,i), 'k', ...
                  times, moments(:,i) .* velocities(:,i), 'b.');
-            ylabel('power (W/kg)');
-            xlabel('time (s)');
+            ylabel('power (W)');
 
-            subplot(5, 3, 12+i)
-            plot(times, expected_for(:, 2*i-1:2*i), 'k', ...
-                 times, forces(:, 2*i-1:2*i), 'b');
-            ylabel('force (N/kg)');
+            % TODO : plot the joint force comparisons
+            %subplot(5, 3, 12+i)
+            %plot(times, expected_for(:, 2*i-1:2*i), 'k', ...
+                 %times, forces(:, 2*i-1:2*i), 'b');
+            %ylabel('force (N/kg)');
             xlabel('time (s)');
         end
     end
 
     % compare to correct reference results, and decide pass if max
     % difference is below 1e-6
-    allresults = [angles velocities moments forces];
+    results = [angles velocities moments];
+    expected_results = [expected_ang expected_vel expected_mom];
     tol = 1e-6;
     if exist('OCTAVE_VERSION', 'builtin') ~= 0
         % Octave has an extended version of assert with floating point
         % comparisons.
-        assert(allresults, refresults, tol);
+        assert(results, expected_results, tol);
     else
-        assert(all(all(abs(allresults - refresults) < tol)));
+        assert(all(all(abs(results - expected_results) < tol)));
     end
 
+end
+
+function deg = rad2deg(rad)
+    deg = rad * 180.0 / pi;
 end
