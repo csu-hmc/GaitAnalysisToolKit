@@ -8,6 +8,7 @@ import warnings
 # external libraries
 import numpy as np
 from scipy.integrate import simps
+from scipy.interpolate import interp1d
 from scipy.signal import firwin, filtfilt
 import matplotlib.pyplot as plt
 import pandas
@@ -80,7 +81,7 @@ def find_constant_speed(time, speed, plot=False, filter_cutoff=1.0):
 
 
 def interpolate(data_frame, time):
-    """Returns a data frame with a index based on the provided time
+    """Returns a new data frame with a index based on the provided time
     array and linear interpolation.
 
     Parameters
@@ -100,21 +101,14 @@ def interpolate(data_frame, time):
 
     """
 
-    total_index = np.sort(np.hstack((data_frame.index.values, time)))
-    reindexed_data_frame = data_frame.reindex(total_index)
-    interpolated_data_frame = \
-        reindexed_data_frame.apply(pandas.Series.interpolate,
-                                   method='values').loc[time]
+    column_names = data_frame.columns
+    old_time = data_frame.index.values
+    vals = data_frame.values
 
-    # If the first or last value of a series is NA then the interpolate
-    # function leaves it as an NA value, so use backfill to take care of
-    # those.
-    interpolated_data_frame = \
-        interpolated_data_frame.fillna(method='backfill')
-    # Because the time vector may have matching indices as the original
-    # index (i.e. always the zero indice), drop any duplicates so the len()
-    # stays consistent
-    return interpolated_data_frame.drop_duplicates()
+    f = interp1d(old_time, vals, axis=0)
+    new_vals = f(time)
+
+    return pandas.DataFrame(new_vals, index=time, columns=column_names)
 
 
 class GaitData(object):

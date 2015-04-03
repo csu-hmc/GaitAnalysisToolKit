@@ -34,10 +34,10 @@ def test_find_constant_speed():
 
 def test_interpolate():
 
-    df = pandas.DataFrame({'a': [np.nan, 3.0, 5.0, 7.0],
-                           'b': [5.0, np.nan, 9.0, 11.0],
+    df = pandas.DataFrame({'a': [2.0, 3.0, 5.0, 7.0],
+                           'b': [5.0, 8.0, 9.0, 11.0],
                            'c': [2.0, 4.0, 6.0, 8.0],
-                           'd': [0.5, 1.0, 1.5, np.nan]},
+                           'd': [0.5, 1.0, 1.5, 2.5]},
                           index=[0.0, 2.0, 4.0, 6.0])
 
     time = [0.0, 1.0, 3.0, 5.0]
@@ -47,10 +47,10 @@ def test_interpolate():
     # NOTE : pandas.Series.interpolate does not extrapolate (because
     # np.interp doesn't.
 
-    df_expected = pandas.DataFrame({'a': [4.0, 4.0, 4.0, 6.0],
-                                    'b': [5.0, 6.0, 8.0, 10.0],
+    df_expected = pandas.DataFrame({'a': [2.0, 2.5, 4.0, 6.0],
+                                    'b': [5.0, 6.5, 8.5, 10.0],
                                     'c': [2.0, 3.0, 5.0, 7.0],
-                                    'd': [0.5, 0.75, 1.25, 1.5]},
+                                    'd': [0.5, 0.75, 1.25, 2.0]},
                                    index=time)
 
     testing.assert_allclose(interpolated.values, df_expected.values)
