@@ -338,7 +338,7 @@ class DFlowData(object):
                          'ROT_C3.PosX', 'ROT_C3.PosY', 'ROT_C3.PosZ',
                          'ROT_C4.PosX', 'ROT_C4.PosY', 'ROT_C4.PosZ']
 
-    cortex_sample_rate = 100  # Hz
+    cortex_sample_rate = 100.0  # Hz
     constant_marker_tolerance = 1e-16  # meters
     low_pass_cutoff = 6.0  # Hz
     delsys_time_delay = 0.096  # seconds
@@ -503,6 +503,12 @@ class DFlowData(object):
 
         """
 
+        cortex_num_samples = len(data_frame)
+        cortex_time = process.time_vector(cortex_num_samples,
+                                          self.cortex_sample_rate)
+        data_frame['Cortex Time'] = cortex_time
+        data_frame['D-Flow Time'] = data_frame['TimeStamp']
+
         data_frame = self._shift_delsys_signals(data_frame)
 
         columns = list(data_frame.columns)
@@ -514,7 +520,7 @@ class DFlowData(object):
 
         return data_frame
 
-    def _shift_delsys_signals(self, data_frame, time_col='TimeStamp'):
+    def _shift_delsys_signals(self, data_frame, time_col='Cortex Time'):
         """Returns a data frame in which the Delsys columns are linearly
         interpolated (and extrapolated) at the time they were actually
         measured."""
@@ -1459,12 +1465,12 @@ class DFlowData(object):
             if self.meta_yml_path is not None:
                 df = self._relabel_markers(df)
 
+            df = self._generate_cortex_time_stamp(df)
+
             df = self._shift_delsys_signals(df)
 
             if not self._missing_markers_are_zeros() and id_na is True:
                 df = self._identify_missing_markers(df)
-
-            df = self._generate_cortex_time_stamp(df)
 
             if interpolate is True and id_na is True:
                 if ignore_hbm is False:
@@ -1473,7 +1479,7 @@ class DFlowData(object):
                 else:
                     cols_to_interp = self.marker_column_labels
 
-                df = spline_interpolate_over_missing(df, 'TimeStamp',
+                df = spline_interpolate_over_missing(df, 'Cortex Time',
                                                      order=interpolation_order,
                                                      columns=cols_to_interp)
 

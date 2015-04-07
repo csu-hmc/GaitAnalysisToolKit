@@ -875,6 +875,7 @@ class TestDFlowData():
     def test_shift_delsys_signals(self):
         dflow_data = DFlowData(self.path_to_mocap_data_file)
         mocap_data_frame = dflow_data._load_mocap_data(ignore_hbm=True)
+        mocap_data_frame = dflow_data._generate_cortex_time_stamp(mocap_data_frame)
         shifted_mocap_data_frame = \
             dflow_data._shift_delsys_signals(mocap_data_frame)
 
