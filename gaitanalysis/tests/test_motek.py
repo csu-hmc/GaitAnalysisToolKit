@@ -197,10 +197,10 @@ def test_low_pass_filter():
         testing.assert_allclose(filtered['D'].values[50:-50],
                                 low_freq[50:-50], rtol=0.01, atol=0.01)
     else:
-        testing.assert_allclose(filtered['A'].values, low_freq, rtol=1e-5,
-                                atol=1e-5)
-        testing.assert_allclose(filtered['D'].values, low_freq, rtol=1e-5,
-                                atol=1e-5)
+        testing.assert_allclose(filtered['A'].values, low_freq, rtol=3e-5,
+                                atol=3e-5)
+        testing.assert_allclose(filtered['D'].values, low_freq, rtol=3e-5,
+                                atol=3e-5)
 
 
 class TestDFlowData():

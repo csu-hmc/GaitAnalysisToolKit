@@ -33,7 +33,7 @@ install_requires = ['numpy>=1.6.1',
                     'tables>=2.3.1',
                     'pandas>=0.12.0',
                     'pyyaml>=3.10',
-                    'DynamicistToolKit>=0.3.5']
+                    'DynamicistToolKit>=0.4.0']
 
 if sys.platform == "win32":
     install_requires.append('oct2py>=2.4.2')

@@ -10,7 +10,7 @@ apt-get install -y python-setuptools python-pip
 apt-get install -y python-numpy python-scipy python-matplotlib python-tables python-yaml octave
 pip install oct2py==1.2.0
 pip install pandas==0.12.0
-pip install DynamicistToolKit==0.3.5
+pip install DynamicistToolKit==0.4.0
 # testing
 apt-get install -y python-nose python-coverage
 # documentation

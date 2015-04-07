@@ -77,7 +77,7 @@ Supported versions:
 - tables >= 2.3.1
 - pandas >= 0.12.0
 - pyyaml >= 3.10
-- DynamicistToolKit >= 0.3.5
+- DynamicistToolKit >= 0.4.0
 - oct2py >= 1.2.0 (>=2.4.2 is required for Octave>=3.8 on Windows)
 - octave >= 3.8.1
 
