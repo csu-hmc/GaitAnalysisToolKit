@@ -34,7 +34,7 @@ def test_find_constant_speed():
 
     indice, constant_speed_time = find_constant_speed(time, speed, plot=False)
 
-    assert 6.5 < constant_speed_time < 7.5
+    assert 6.0 < constant_speed_time < 7.0
 
 
 def test_interpolate():

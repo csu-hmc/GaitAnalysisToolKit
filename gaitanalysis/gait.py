@@ -53,9 +53,11 @@ def find_constant_speed(time, speed, plot=False, filter_cutoff=1.0):
 
     filtered_speed = process.butterworth(speed, filter_cutoff, sample_rate)
 
-    acceleration = np.hstack((0.0, np.diff(filtered_speed)))
-
-    noise_level = np.max(np.abs(acceleration[int(0.2 * len(acceleration)):-1]))
+    acceleration = process.derivative(time, filtered_speed,
+                                      method='central',
+                                      padding='second order')
+    last = acceleration[int(0.2 * len(acceleration)):]
+    noise_level = np.max(np.abs(last - np.mean(last)))
 
     reversed_acceleration = acceleration[::-1]
 
@@ -66,12 +68,11 @@ def find_constant_speed(time, speed, plot=False, filter_cutoff=1.0):
     new_indice = indice - additional_samples
 
     if plot is True:
-        import matplotlib.pyplot as plt
         fig, ax = plt.subplots(2, 1)
         ax[0].plot(time, speed, '.', time, filtered_speed, 'g-')
         ax[0].plot(np.ones(2) * (time[len(time) - new_indice]),
                    np.hstack((np.max(speed), np.min(speed))))
-        ax[1].plot(time, np.hstack((0.0, np.diff(filtered_speed))), '.')
+        ax[1].plot(time, acceleration, '.')
         fig.show()
 
     return len(time) - (new_indice), time[len(time) - new_indice]
