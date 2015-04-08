@@ -527,8 +527,9 @@ class DFlowData(object):
 
         delsys_time = data_frame[time_col] - self.delsys_time_delay
         delsys_labels = self.emg_column_labels + self.accel_column_labels
+        delsys_labels_in_df = set(data_frame.columns).intersection(delsys_labels)
 
-        for delsys_label in set(data_frame.columns).intersection(delsys_labels):
+        for delsys_label in delsys_labels_in_df:
             interpolate = InterpolatedUnivariateSpline(delsys_time,
                                                        data_frame[delsys_label],
                                                        k=1)
