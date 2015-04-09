@@ -289,6 +289,18 @@ Git Notes
 Release Notes
 =============
 
+0.2.0
+-----
+
+- The minimum version of the required dependency, DynamicistToolKit, was bumped
+  to 0.4.0. [PR `#134`_]
+- Reworked the DFlowData class so that interpolation and resampling is based on
+  the FrameNumber column in the mocap data instead of the unreliable TimeStamp
+  column. [PR `#135`_]
+
+.. _#134: https://github.com/csu-hmc/GaitAnalysisToolKit/pull/134
+.. _#135: https://github.com/csu-hmc/GaitAnalysisToolKit/pull/135
+
 0.1.3
 -----
 
