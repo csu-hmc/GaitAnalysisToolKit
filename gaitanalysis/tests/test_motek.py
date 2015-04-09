@@ -1028,12 +1028,14 @@ class TestDFlowData():
         dflow_data = DFlowData(self.path_to_mocap_data_file,
                                self.path_to_record_data_file)
         dflow_data.mocap_data = self.mocap_data_frame
+        init_mocap_time = self.mocap_data_frame['TimeStamp'].iloc[0]
         dflow_data._generate_cortex_time_stamp(self.mocap_data_frame)
         record_data = dflow_data._resample_record_data(self.record_data_frame)
         expected_time = time_vector(self.cortex_number_of_samples, 1.0 /
                                     self.cortex_sample_period)
 
-        testing.assert_allclose(record_data['Time'], expected_time)
+        testing.assert_allclose(record_data['Time'],
+                                init_mocap_time + expected_time)
         # TODO : Test that the values are correct. How?
 
     def test_compensate_forces(self):
@@ -1270,10 +1272,10 @@ class TestDFlowData():
 
         zeroing_data_frame = dflow_data.extract_processed_data(event='Zeroing')
 
-        start_i = np.argmin(np.abs(dflow_data.data['TimeStamp'] -
+        start_i = np.argmin(np.abs(dflow_data.data['Time'] -
                                    self.n_event_times[0]))
 
-        stop_i = np.argmin(np.abs(dflow_data.data['TimeStamp'] -
+        stop_i = np.argmin(np.abs(dflow_data.data['Time'] -
                                   self.n_event_times[1]))
 
         compare_data_frames(zeroing_data_frame,

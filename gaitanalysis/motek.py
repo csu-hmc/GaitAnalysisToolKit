@@ -1030,56 +1030,53 @@ class DFlowData(object):
         # The record module file is tab delimited and may have events
         # interspersed in between the rows which are commenting out by
         # hashes. We must dropna to remove commented lines from the
-        # resutling data frame, only if all values in a row are NA. The
+        # resulting data frame, only if all values in a row are NA. The
         # comment keyword argument only ingores comments at the end of each
         # line, not comments that take up an entire line, it is acutally
         # probably not even needed in this case.
-        return pandas.read_csv(self.record_tsv_path, delimiter='\t',
-                               comment='#').dropna(how='all').reset_index(drop=True)
+
+        df = pandas.read_csv(self.record_tsv_path, delimiter='\t',
+                             comment='#')
+
+        return df.dropna(how='all').reset_index(drop=True)
 
     def _resample_record_data(self, data_frame):
         """Resamples the raw data from the record file at the sample rate of
         the mocap file."""
 
-        # The 'TimeStamp' column in the mocap data is the time at which
-        # D-Flow recieves the Cortex data. Each of which corresponds to a
-        # Cortex time stamp. The 'Time' column from the record module is the
-        # D-Flow time which corresponds to the D-Flow variable frame rate.
-        # The purpose of this code is to find interpolated values from each
-        # column in the record data at the Cortex time stamp.
+        # The mocap 'TimeStamp' column and the record 'Time' column are both
+        # created from the DFlow computer CPU clock. The record 'Time'
+        # column is the time at a highly variable sample rate that is tied
+        # to the DFlow real time frame rate. In theory, these two columns
+        # should allow one to synchronize the data from DFlow sources to
+        # those collected by Cortex. But the mocap 'TimeStamp' has stack up
+        # issues, i.e. if a bunch of FIFO Cortex frames arrive all at once
+        # to DFLow, DFlow tags the CPU time instead of the time at which
+        # Cortex actually collected the data. But the record module doesn't
+        # have the same time stack up, so syncronizing wrt 'TimeStamp' and
+        # 'Time' will result in incorrect data. So the workaround is
+        # implemented here. We assume that the mocap 'FrameNumber' is
+        # reliably provided at 100 hz and create a time array that
+        # corresponds to the frames and starts at the initial mocap CPU
+        # time. This array is used to interpolate the data tied to the
+        # 'Time' column.
 
-        # Combine the D-Flow times from each data frame and sort them.
-        all_times = np.hstack((data_frame['Time'],
-                               self.mocap_data['TimeStamp']))
-        all_times_sort_indices = np.argsort(all_times)
+        init_mocap_time = self.mocap_data['TimeStamp'].iloc[0]
+        cortex_time_in_dflow = init_mocap_time + self.cortex_time
 
-        # Create a dictionary which has each column from the record data
-        # frame, but NaNs in the rows corresponding to the mocap 'TimeStamp'
-        # in all columns but the new 'Time' column.
-        total = {}
+        def interp1D(x, y, new_x):
+            f = InterpolatedUnivariateSpline(x, y, k=1)
+            return f(new_x)
+
+        record_df = {}
         for label, series in data_frame.iteritems():
-            all_values = np.hstack((series, np.nan *
-                                    np.ones(len(self.mocap_data))))
-            total[label] = all_values[all_times_sort_indices]
-        total['Time'] = np.sort(all_times)
-        total = pandas.DataFrame(total)
+            record_df[label] = interp1D(data_frame['Time'].values,
+                                        series.values,
+                                        cortex_time_in_dflow)
 
-        def linear_time_interpolate(series):
-            # Note : scipy.interpolate.interp1d does not extrapolate, so it
-            # failed here, but the general spline class does extropolate so
-            # the following seems to work.
-            f = InterpolatedUnivariateSpline(data_frame['Time'].values,
-                                             series[series.notnull()].values,
-                                             k=1)
-            return f(self.mocap_data['TimeStamp'])
+        record_df['Time'] = cortex_time_in_dflow
 
-        new_record = {}
-        for label, series in total.iteritems():
-            if label != 'Time':
-                new_record[label] = linear_time_interpolate(series)
-        new_record['Time'] = self.cortex_time
-
-        return pandas.DataFrame(new_record)
+        return pandas.DataFrame(record_df)
 
     def _compensate_forces(self, calibration_data_frame, data_frame):
         """Computes the forces and moments which are due to the lateral and
@@ -1150,11 +1147,12 @@ class DFlowData(object):
         3. Identifies the missing markers in the compensation file and
            interpolates to fill them.
         4. Shifts the Delsys signals to correct time.
-        5. Filter the forces, accelerometer, and treadmill markers at 6 hz low pass.
-        6. Compute the compensated forces (apply inertial compensation and express
-            in global reference frame)
-        7. Replace the force/moment measurements in the mocap data file with the
-            compensated forces/moments.
+        5. Filter the forces, accelerometer, and treadmill markers at 6 hz
+           low pass.
+        6. Compute the compensated forces (apply inertial compensation and
+           express in global reference frame)
+        7. Replace the force/moment measurements in the mocap data file with
+           the compensated forces/moments.
 
         """
         if self._compensation_needed() is True:
@@ -1201,7 +1199,7 @@ class DFlowData(object):
             if ((abs(orientation) != 1) * (orientation != 0)).any():
                 raise ValueError("Bad orientation matrix.")
             for row in range(3):
-                if abs(orientation[row,:].sum()) != 1:
+                if abs(orientation[row, :].sum()) != 1:
                     raise ValueError("Bad orientation matrix.")
 
             if not (np.shape(x_prime) == np.shape(y_prime) == np.shape(z_prime)):
@@ -1507,8 +1505,8 @@ class DFlowData(object):
 
         if mocap is not None and record is not None:
 
-            self.record_data = \
-                self._resample_record_data(self.raw_record_data_frame)
+            self.record_data = self._resample_record_data(
+                self.raw_record_data_frame)
 
             data = self.mocap_data.join(self.record_data)
 
@@ -1565,8 +1563,8 @@ class DFlowData(object):
                 msg = '{} is not a valid event. Valid events are: {}.'
                 raise KeyError(msg.format(event, ','.join(self.events.keys())))
             else:
-                start_i = np.argmin(np.abs(self.data['TimeStamp'] - start))
-                stop_i = np.argmin(np.abs(self.data['TimeStamp'] - stop))
+                start_i = np.argmin(np.abs(self.data['Time'] - start))
+                stop_i = np.argmin(np.abs(self.data['Time'] - stop))
                 data_frame = self.data.iloc[start_i:stop_i, :]
 
         if index_col is not None:
