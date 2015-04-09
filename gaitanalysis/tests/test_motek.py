@@ -16,6 +16,7 @@ from pandas.util.testing import assert_frame_equal
 from nose.tools import assert_raises
 import yaml
 from dtk.process import time_vector
+import matplotlib.pyplot as plt
 
 # local
 from ..motek import (DFlowData, spline_interpolate_over_missing,
@@ -208,6 +209,8 @@ class TestDFlowData():
     cortex_start_frame = 2375
     cortex_sample_period = 1.0 / 100.0
     cortex_number_of_samples = 2001
+    cortex_time = time_vector(cortex_number_of_samples, 1.0 /
+                              cortex_sample_period)
     missing_marker_start_indices = [78, 158, 213, 401, 478]
     length_missing = [2, 5, 8, 10, 12]
 
@@ -409,9 +412,9 @@ class TestDFlowData():
         delimited file. The first line is the header. The header contains
         the `TimeStamp` column which is the system time on the DFlow
         computer when it receives the Cortex frame and is thus not exactly
-        at 100 hz, it has a light variable sample rate. The next column is
-        the `FrameNumber` column which is the Cortex frame number. Cortex
-        samples at 100hz and the frame numbers start at some positive
+        at 100 hz, it has a variable sample rate around 100 hz. The next
+        column is the `FrameNumber` column which is the Cortex frame number.
+        Cortex samples at 100hz and the frame numbers start at some positive
         integer value. The remaining columns are samples of the computed
         marker positions at each Cortex frame and the analog signals (force
         plate forces/moments, EMG, accelerometers, etc). The analog signals
@@ -438,19 +441,19 @@ class TestDFlowData():
                             np.ones(self.cortex_number_of_samples) +
                             deviations)
 
-        mocap_data = {'TimeStamp': self.dflow_start_time +
-                      np.cumsum(variable_periods),
-                      'FrameNumber': range(self.cortex_start_frame,
-                                           self.cortex_start_frame +
-                                           self.cortex_number_of_samples, 1),
-                      }
+        mocap_data = {
+            'TimeStamp': self.dflow_start_time + np.cumsum(variable_periods),
+            'FrameNumber': range(self.cortex_start_frame,
+                                 self.cortex_start_frame +
+                                 self.cortex_number_of_samples, 1)}
 
-        for label in self.mocap_labels_with_hbm[2:]:  # skip TimeStamp & FrameNumber
+        # skip TimeStamp & FrameNumber
+        for label in self.mocap_labels_with_hbm[2:]:
             if label in self.delsys_labels:
-                mocap_data[label] = np.sin(mocap_data['TimeStamp'] -
+                mocap_data[label] = np.sin(self.cortex_time -
                                            self.delsys_time_delay)
             else:
-                mocap_data[label] = np.sin(mocap_data['TimeStamp'])
+                mocap_data[label] = np.sin(self.cortex_time)
 
         self.mocap_data_frame = pandas.DataFrame(mocap_data)
 
@@ -489,18 +492,17 @@ class TestDFlowData():
                             np.ones(self.cortex_number_of_samples) +
                             deviations)
 
-        compensation_data = {'TimeStamp': self.dflow_start_time +
-                      np.cumsum(variable_periods),
-                      'FrameNumber': range(self.cortex_start_frame,
-                                           self.cortex_start_frame +
-                                           self.cortex_number_of_samples, 1),
-                      }
+        compensation_data = {
+            'TimeStamp': self.dflow_start_time + np.cumsum(variable_periods),
+            'FrameNumber': range(self.cortex_start_frame,
+                                 self.cortex_start_frame +
+                                 self.cortex_number_of_samples, 1)}
 
         for label in self.cortex_force_labels:
-            compensation_data[label] = 0.5 * np.cos(compensation_data['TimeStamp'])
+            compensation_data[label] = 0.5 * np.cos(self.cortex_time)
 
         for label in self.delsys_labels:
-            compensation_data[label] = np.cos(compensation_data['TimeStamp']
+            compensation_data[label] = np.cos(self.cortex_time
                                               - self.delsys_time_delay)
 
         self.compensation_data_frame = pandas.DataFrame(compensation_data)
@@ -518,8 +520,8 @@ class TestDFlowData():
             kwargs['columns'] = cols
         else:
             kwargs['cols'] = cols
-        self.compensation_data_frame.to_csv(self.path_to_compensation_data_file,
-                                            **kwargs)
+        self.compensation_data_frame.to_csv(
+            self.path_to_compensation_data_file, **kwargs)
 
     def create_sample_meta_data_file(self):
         """We will have an optional YAML file containing meta data for
@@ -873,16 +875,16 @@ class TestDFlowData():
         assert 'STRN.PosZ' in dflow_data.mocap_column_labels
 
     def test_shift_delsys_signals(self):
-        dflow_data = DFlowData(self.path_to_mocap_data_file)
-        mocap_data_frame = dflow_data._load_mocap_data(ignore_hbm=True)
-        shifted_mocap_data_frame = \
-            dflow_data._shift_delsys_signals(mocap_data_frame)
 
-        # TODO: The last 10 points don't match well. Is probably due to the spline
-        # extrapolation. Maybe better to check this out at some point.
-        testing.assert_allclose(shifted_mocap_data_frame['Channel13.Anlg'][:1990],
-                                np.sin(shifted_mocap_data_frame['TimeStamp'])[:1990],
-                                atol=1e-5, rtol=1e-5)
+        dflow_data = DFlowData(self.path_to_mocap_data_file)
+        df = dflow_data._load_mocap_data(ignore_hbm=True)
+        df = dflow_data._generate_cortex_time_stamp(df)
+
+        shifted_df = dflow_data._shift_delsys_signals(df)
+
+        testing.assert_allclose(shifted_df['Channel13.Anlg'],
+                                np.sin(df['Cortex Time']), rtol=4e-3,
+                                atol=4e-3)
 
     def test_identify_missing_markers(self):
         dflow_data = DFlowData(self.path_to_mocap_data_file)
@@ -902,23 +904,38 @@ class TestDFlowData():
                                     self.cortex_sample_period)
         testing.assert_allclose(data['Cortex Time'], expected_time)
 
-    def test_interpolate_missing_markers(self):
+    def test_interpolate_missing_markers(self, plot=False):
 
         dflow_data = DFlowData(self.path_to_mocap_data_file)
-        mocap_data_frame = dflow_data._load_mocap_data(ignore_hbm=True)
-        identified = dflow_data._identify_missing_markers(mocap_data_frame)
-        interpolated = spline_interpolate_over_missing(identified,
-                                                       'TimeStamp',
-                                                       columns=dflow_data.marker_column_labels)
+        df = dflow_data._load_mocap_data(ignore_hbm=True)
+        df = dflow_data._generate_cortex_time_stamp(df)
+        identified = dflow_data._identify_missing_markers(df)
+        before_interp = identified.copy()
+
+        interpolated = spline_interpolate_over_missing(
+            identified, 'Cortex Time',
+            columns=dflow_data.marker_column_labels)
 
         # There should be no nans in the interpolated data.
         assert not pandas.isnull(interpolated).any().any()
 
         for label in (self.compensation_treadmill_markers +
                       self.cortex_marker_labels):
+            # NOTE : The large tolerances are required due to the error in
+            # the comparison at the interpolated values.
             testing.assert_allclose(interpolated[label].values,
-                                    np.sin(interpolated['TimeStamp']).values,
-                                    rtol=1e-3, atol=1e-3)
+                                    np.sin(interpolated['Cortex Time']).values,
+                                    rtol=2e-3, atol=2e-3)
+            if plot:
+                fig, axes = plt.subplots(2)
+                axes[0].plot(interpolated['Cortex Time'],
+                             interpolated[label])
+                axes[0].plot(before_interp['Cortex Time'],
+                             before_interp[label], '.')
+                axes[1].plot(interpolated['Cortex Time'],
+                             np.abs(np.sin(interpolated['Cortex Time']).values -
+                                    interpolated[label]))
+                plt.show()
 
     def test_missing_markers_are_zeros(self):
 
@@ -1011,12 +1028,14 @@ class TestDFlowData():
         dflow_data = DFlowData(self.path_to_mocap_data_file,
                                self.path_to_record_data_file)
         dflow_data.mocap_data = self.mocap_data_frame
+        init_mocap_time = self.mocap_data_frame['TimeStamp'].iloc[0]
         dflow_data._generate_cortex_time_stamp(self.mocap_data_frame)
         record_data = dflow_data._resample_record_data(self.record_data_frame)
         expected_time = time_vector(self.cortex_number_of_samples, 1.0 /
                                     self.cortex_sample_period)
 
-        testing.assert_allclose(record_data['Time'], expected_time)
+        testing.assert_allclose(record_data['Time'],
+                                init_mocap_time + expected_time)
         # TODO : Test that the values are correct. How?
 
     def test_compensate_forces(self):
@@ -1253,10 +1272,10 @@ class TestDFlowData():
 
         zeroing_data_frame = dflow_data.extract_processed_data(event='Zeroing')
 
-        start_i = np.argmin(np.abs(dflow_data.data['TimeStamp'] -
+        start_i = np.argmin(np.abs(dflow_data.data['Time'] -
                                    self.n_event_times[0]))
 
-        stop_i = np.argmin(np.abs(dflow_data.data['TimeStamp'] -
+        stop_i = np.argmin(np.abs(dflow_data.data['Time'] -
                                   self.n_event_times[1]))
 
         compare_data_frames(zeroing_data_frame,
@@ -1264,15 +1283,16 @@ class TestDFlowData():
 
         # The next two statements test issue #57, i.e. extracting multiple
         # copies of the processed data with index column rewrite.
-        timestamp_index_data_frame = dflow_data.extract_processed_data(index_col='TimeStamp')
+        timestamp_index_data_frame = \
+            dflow_data.extract_processed_data(index_col='Cortex Time')
 
         timestamp_index_data_frame = \
             dflow_data.extract_processed_data(event='Zeroing',
-                                              index_col='TimeStamp')
+                                              index_col='Cortex Time')
 
         timestamp_index_data_frame = \
             dflow_data.extract_processed_data(event='Zeroing',
-                                              index_col='TimeStamp',
+                                              index_col='Cortex Time',
                                               isb_coordinates=True)
 
         # TODO : Make some assertions!
