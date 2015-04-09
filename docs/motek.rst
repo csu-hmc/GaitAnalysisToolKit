@@ -48,7 +48,7 @@ D-Flow's mocap module has a file tab which allows you to export the time series
 data collected from Cortex in two different file formats: `tab separated
 values`_ (TSV) and the C3D format (see http://www.c3d.org). The TSV files are
 approximately twice the size of the C3D files, don't maintain machine
-precision, and do not allow for meta data storage. But for now, this software
+precision, and do not allow for meta data storage. But for now, this tool kit
 only deals with the TSV file format.
 
 .. _tab separated values: http://en.wikipedia.org/wiki/Tab-separated_values
@@ -69,20 +69,32 @@ Data Column Descriptions
 
 Time Stamp
    The ``TimeStamp`` column records the D-Flow system time when it receives a
-   "frame" from Cortex in seconds since D-Flow was started. This is
-   approximately at 100 hz (Cortex's sample rate), but has slight variability
-   per sample period, something like +/- 0.002 s or so. This column can be used
-   to synchronize with other D-Flow output files which include a D-Flow time
-   stamp, e.g. the output of the record module. The following figure shows the
-   difference, ``.diff()``, of an example D-Flow time stamp, giving the
-   variability in periods at each measurement instance.
+   "frame" from Cortex in seconds since D-Flow was started. These time values
+   are given at approximately 100 hz (Cortex's sample rate), but in general it
+   has slight variability per sample period, something like +/- 0.002 s or so.
+   The following figure shows the difference in the current and next time
+   sample, ``.diff()``, of an example D-Flow time stamp, giving the variability
+   in periods at each measurement instance.
 
    .. image:: d-flow-time-stamp-diff.png
 
+   The ``TimeStamp`` column also can suffer from "time stack up". If D-Flow
+   does not keep up with Cortex, there is a FIFO buffer that frames can stack
+   up in, and when D-Flow catches up all the frames arrive at the same D-Flow
+   CPU time and thus get marked with erroneus time values. The following figure
+   shows a single marker coordinate plotted against both the ``TimeStamp`` and
+   ``FrameNumber`` columns to demonstrate the stack up issue.
+
+   .. image:: 021-bad-idxs-zoom.png
+
+   The time values in this column can be used to synchronize with other D-Flow
+   output files which include a D-Flow time stamp, e.g. the output of the
+   record module, but one must be aware of the time issues.
 Frame Number
    The ``FrameNumber`` column gives a positive integer to count the frame
-   numbers delivered by Cortex. It seems as though none of the frames are
-   ever dropped but this should be verified.
+   numbers delivered by Cortex. It seems as though none of the frames are ever
+   dropped but this should be verified. Cortex can be assumed to reliably
+   deliver the frames at 100 hz.
 Marker Coordinates
    The columns that correspond to marker coordinates have one of three
    suffixes: ``.PosX``, ``.PosY``, ``.PosZ``. The prefix is the marker name
