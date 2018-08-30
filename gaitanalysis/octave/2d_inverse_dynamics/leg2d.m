@@ -91,9 +91,9 @@ function [angles, velocities, moments, forces] = leg2d(times, mocapdata, fpdata,
 		maxmissing = max(diff(validsamples))-1;			% determine largest gap
 		fprintf('Marker %d: %d samples are missing, longest gap is %d samples.\n', i, missing, maxmissing);
 		[xf, xd, xdd] = myfiltfilt(validtimes, d(validsamples,:), options.freq);
-		mocap_f(:,columns) = interp1q(validtimes, xf, times);		% resample filtered signal to original time stamps
-		mocap_d(:,columns) = interp1q(validtimes, xd, times);		% resample first derivative to original time stamps
-		mocap_dd(:,columns) = interp1q(validtimes, xdd, times);		% resample second derivative to original time stamps
+		mocap_f(:,columns) = interp1(validtimes, xf, times);		% resample filtered signal to original time stamps
+		mocap_d(:,columns) = interp1(validtimes, xd, times);		% resample first derivative to original time stamps
+		mocap_dd(:,columns) = interp1(validtimes, xdd, times);		% resample second derivative to original time stamps
 	end
 
 	% do the low-pass filtering on the force plate data
