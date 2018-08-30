@@ -67,7 +67,7 @@ def find_constant_speed(time, speed, plot=False, filter_cutoff=1.0):
 
     additional_samples = sample_rate * 0.65
 
-    new_indice = indice - additional_samples
+    new_indice = indice - int(round(additional_samples))
 
     if plot is True:
         fig, ax = plt.subplots(2, 1)
