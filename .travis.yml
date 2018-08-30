@@ -1,9 +1,10 @@
 language: generic
 os:
   - linux
-matrix:
-  - DEP_VERSIONS="oldest"
-  - DEP_VERSIONS="latest"
+env:
+  matrix:
+    - DEP_VERSIONS="oldest"
+    - DEP_VERSIONS="latest"
 before_install:
   - |
     MINICONDA_URL="https://repo.continuum.io/miniconda"
