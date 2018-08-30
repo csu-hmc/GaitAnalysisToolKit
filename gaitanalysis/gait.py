@@ -5,11 +5,13 @@
 import os
 
 # external libraries
+from pkg_resources import parse_version
 import numpy as np
 from scipy.integrate import simps
 import matplotlib.pyplot as plt
 import pandas
 from dtk import process
+import oct2py
 from oct2py import octave
 
 # local
@@ -237,9 +239,14 @@ class GaitData(object):
             # oct2py doesn't allow multiple outputs to be stored in a tuple
             # like python, so you have to output each variable
             # independently
-            angles, velocities, moments, forces = \
-                octave.leg2d(time, marker_array, normalized_force_array,
-                             options)
+            if parse_version(oct2py.__version__) >= parse_version('4.0'):
+                angles, velocities, moments, forces = \
+                    octave.leg2d(time, marker_array, normalized_force_array,
+                                 options, nout=4)
+            else:
+                angles, velocities, moments, forces = \
+                    octave.leg2d(time, marker_array, normalized_force_array,
+                                 options)
 
             dynamics = angles, velocities, moments, forces
 
