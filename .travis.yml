@@ -6,23 +6,22 @@ env:
     - DEP_VERSIONS="oldest"
     - DEP_VERSIONS="latest"
 before_install:
-  - |
-    MINICONDA_URL="https://repo.continuum.io/miniconda"
-    MINICONDA_FILE="Miniconda3-latest-Linux-x86_64.sh"
-    curl -L -O "${MINICONDA_URL}/${MINICONDA_FILE}"
-    bash $MINICONDA_FILE -b
-  - source ~/miniconda3/bin/activate root
-  - conda config --set always_yes yes
-  - conda update -q conda
   - if [[ $DEP_VERSIONS == "oldest" ]]; then
-      conda env create -f env-dev-oldest.yml;
-      source activate gaitanalysis-dev-oldest;
+      sudo apt-get install -y -qq python-pip python-setuptools python-numpy python-scipy python-matplotlib python-tables python-nose python-coverage;
+      pip install pandas==0.15.1 pyyaml oct2py==2.4.2 DynamicistToolKit==0.3.5 sphinx mock numpydoc;
     elif [[ $DEP_VERSIONS == "latest" ]]; then
-      sudo apt-add-repository -y ppa:octave/stable;
-      sudo apt-get update;
+      MINICONDA_URL="https://repo.continuum.io/miniconda";
+      MINICONDA_FILE="Miniconda3-latest-Linux-x86_64.sh";
+      curl -L -O "${MINICONDA_URL}/${MINICONDA_FILE}";
+      bash $MINICONDA_FILE -b;
+      source ~/miniconda3/bin/activate root;
+      conda config --set always_yes yes;
+      conda update -q conda;
       conda env create -f env-dev-latest.yml;
       source activate gaitanalysis-dev-latest;
+      sudo apt-add-repository -y ppa:octave/stable;
     fi
+  - sudo apt-get update
   - sudo apt-get install -y -qq octave
 install:
   - python setup.py install
@@ -30,6 +29,7 @@ before_script:
   - octave --version
   - conda info
   - conda list
+  - pip freeze
 script:
   - nosetests -v --with-coverage --cover-package=gaitanalysis
   - cd docs
