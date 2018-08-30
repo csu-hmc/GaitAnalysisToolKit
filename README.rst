@@ -208,16 +208,12 @@ Release Notes
 - Reworked the DFlowData class so that interpolation and resampling is based on
   the FrameNumber column in the mocap data instead of the unreliable TimeStamp
   column. [PR `#135`_]
+- Added note and setup.py check about higher oct2py versions required for
+  Windows.
 
 .. _#134: https://github.com/csu-hmc/GaitAnalysisToolKit/pull/134
 .. _#135: https://github.com/csu-hmc/GaitAnalysisToolKit/pull/135
 .. _#140: https://github.com/csu-hmc/GaitAnalysisToolKit/pull/140
-
-0.1.3
------
-
-- Added note and setup.py check about higher oct2py versions required for
-  Windows.
 
 0.1.2
 -----
