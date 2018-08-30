@@ -24,12 +24,19 @@ before_install:
   - sudo apt-get update
   - sudo apt-get install -y -qq octave
 install:
-  - python setup.py install
+  - if [[ $DEP_VERSIONS == "oldest" ]]; then
+      sudo python setup.py install;
+    elif [[ $DEP_VERSIONS == "latest" ]]; then
+      python setup.py install;
+    fi
 before_script:
   - octave --version
-  - conda info
-  - conda list
-  - pip freeze
+  - if [[ $DEP_VERSIONS == "oldest" ]]; then
+      pip freeze;
+    elif [[ $DEP_VERSIONS == "latest" ]]; then
+      conda info;
+      conda list;
+    fi
 script:
   - nosetests -v --with-coverage --cover-package=gaitanalysis
   - cd docs
