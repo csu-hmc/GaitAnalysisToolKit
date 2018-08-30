@@ -180,8 +180,8 @@ class TestGaitData():
         min_idx = len(self.data_frame) / 3
         max_idx = 2*len(self.data_frame) / 3
 
-        min_time = self.data_frame.index.astype(float)[min_idx]
-        max_time = self.data_frame.index.astype(float)[max_idx]
+        min_time = self.data_frame.index.values.astype(float)[min_idx]
+        max_time = self.data_frame.index.values.astype(float)[max_idx]
 
         right_strikes, left_strikes, right_offs, left_offs = \
             gait_data.grf_landmarks('Right Vertical GRF',
