@@ -1,0 +1,17 @@
+name: gaitanalysis-dev-oldest
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python =2.7.*
+  - numpy =1.6.*
+  - scipy =0.9.*
+  - matplotlib =1.1.*
+  - pytables =2.3.*
+  - pandas =0.12.*
+  - pyyaml =3.10
+  - dynamicisttoolkit =0.4.*
+  - oct2py =1.2.*
+  - nose
+  - sphinx
+  - coverage
