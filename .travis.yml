@@ -25,7 +25,7 @@ before_install:
   - sudo apt-get install -y -qq octave
 install:
   - if [[ $DEP_VERSIONS == "oldest" ]]; then
-      sudo python setup.py install;
+      sudo pip install --no-deps -e .;
     elif [[ $DEP_VERSIONS == "latest" ]]; then
       python setup.py install;
     fi
