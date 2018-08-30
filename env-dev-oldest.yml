@@ -1,0 +1,20 @@
+name: gaitanalysis-dev-oldest
+channels:
+  - defaults
+  - moorepants
+dependencies:
+  - python =2.7.*
+  - numpy =1.9.1
+  - scipy =0.14.0
+  - matplotlib =1.4.2
+  - pytables =3.1.1
+  - pandas =0.15.1
+  - pyyaml =3.11
+  - nose
+  - sphinx
+  - coverage
+  - mock
+  - numpydoc
+  - pip:
+    - dynamicisttoolkit==0.3.5
+    - oct2py==2.4.2

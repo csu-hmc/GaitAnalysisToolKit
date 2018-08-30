@@ -2,6 +2,6 @@
 2. Bump the version in gaitanalysis/version.py, for example 0.1.0dev to 0.1.0.
 3. Commit changes.
 4. git tag -a vX.X.X -m "Version X.X.X"
-5. python setup.py regsiter sdist upload
+5. python setup.py register sdist upload
 6. Make sure the latest version is available on readthedocs.org
 7. Bump the version in the git repo to one with "dev" appended.

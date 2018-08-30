@@ -5,11 +5,13 @@
 import os
 
 # external libraries
+from pkg_resources import parse_version
 import numpy as np
 from scipy.integrate import simps
 import matplotlib.pyplot as plt
 import pandas
 from dtk import process
+import oct2py
 from oct2py import octave
 
 # local
@@ -65,7 +67,7 @@ def find_constant_speed(time, speed, plot=False, filter_cutoff=1.0):
 
     additional_samples = sample_rate * 0.65
 
-    new_indice = indice - additional_samples
+    new_indice = indice - int(round(additional_samples))
 
     if plot is True:
         fig, ax = plt.subplots(2, 1)
@@ -237,9 +239,14 @@ class GaitData(object):
             # oct2py doesn't allow multiple outputs to be stored in a tuple
             # like python, so you have to output each variable
             # independently
-            angles, velocities, moments, forces = \
-                octave.leg2d(time, marker_array, normalized_force_array,
-                             options)
+            if parse_version(oct2py.__version__) >= parse_version('4.0'):
+                angles, velocities, moments, forces = \
+                    octave.leg2d(time, marker_array, normalized_force_array,
+                                 options, nout=4)
+            else:
+                angles, velocities, moments, forces = \
+                    octave.leg2d(time, marker_array, normalized_force_array,
+                                 options)
 
             dynamics = angles, velocities, moments, forces
 
