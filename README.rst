@@ -7,7 +7,7 @@ University but other portions may have potential for general use. It is
 relatively modular so you can use what you want. It is primarily structured as
 a Python distribution but the Octave files are also accessible independently.
 
-.. image:: https://pypip.in/version/gaitanalysistoolkit/badge.svg
+.. image:: https://img.shields.io/pypi/v/gaitanalysistoolkit.svg
     :target: https://pypi.python.org/pypi/gaitanalysistoolkit/
     :alt: Latest Version
 
@@ -71,14 +71,14 @@ http://www.scipy.org/stackspec.html.
 Supported versions:
 
 - python >= 2.7
-- numpy >= 1.6.1
-- scipy >= 0.9.0
-- matplotlib >= 1.1.0
-- tables >= 2.3.1
-- pandas >= 0.12.0
+- numpy >= 1.8.2
+- scipy >= 0.13.3
+- matplotlib >= 1.3.1
+- tables >= 3.1.1
+- pandas >= 0.13.1
 - pyyaml >= 3.10
 - DynamicistToolKit >= 0.4.0
-- oct2py >= 1.2.0 (>=2.4.2 is required for Octave>=3.8 on Windows)
+- oct2py >= 2.4.2
 - octave >= 3.8.1
 
 We recommend installing Anaconda_ for users in our lab to get all of the
@@ -154,13 +154,13 @@ Octave is installed. For example,
 
 The core dependencies can be installed with conda in a conda environment::
 
-   $ conda create -n gait python=2.7 pip numpy scipy matplotlib pytables pandas pyyaml nose sphinx
+   $ conda create -n gait python=2.7 pip numpy scipy matplotlib pytables pandas pyyaml nose sphinx numpydoc oct2py mock
    $ source activate gait
 
 And the dependencies which do not have conda packages can be installed into the
 environment with pip::
 
-   (gait)$ pip install DynamicistToolKit oct2py
+   (gait)$ pip install DynamicistToolKit
 
 Tests
 =====
@@ -201,20 +201,19 @@ Release Notes
 0.2.0
 -----
 
+- Minimum dependencies bumped to Ubuntu 14.04 LTS versions and tests run on
+  latest conda forge packages as of 2018/08/30. [PR `#140`_]
 - The minimum version of the required dependency, DynamicistToolKit, was bumped
   to 0.4.0. [PR `#134`_]
 - Reworked the DFlowData class so that interpolation and resampling is based on
   the FrameNumber column in the mocap data instead of the unreliable TimeStamp
   column. [PR `#135`_]
+- Added note and setup.py check about higher oct2py versions required for
+  Windows.
 
 .. _#134: https://github.com/csu-hmc/GaitAnalysisToolKit/pull/134
 .. _#135: https://github.com/csu-hmc/GaitAnalysisToolKit/pull/135
-
-0.1.3
------
-
-- Added note and setup.py check about higher oct2py versions required for
-  Windows.
+.. _#140: https://github.com/csu-hmc/GaitAnalysisToolKit/pull/140
 
 0.1.2
 -----
