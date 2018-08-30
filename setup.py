@@ -27,18 +27,14 @@ for sub in octave_sub_dirs:
     for glob in file_type_globs:
         octave_rel_paths.append(join('octave', sub, glob))
 
-install_requires = ['numpy>=1.6.1',
-                    'scipy>=0.9.0',
-                    'matplotlib>=1.1.0',
-                    'tables>=2.3.1',
-                    'pandas>=0.12.0',
+install_requires = ['numpy>=1.8.2',
+                    'scipy>=0.13.3',
+                    'matplotlib>=1.3.1',
+                    'tables>=3.1.1',
+                    'pandas>=0.13.1',
                     'pyyaml>=3.10',
-                    'DynamicistToolKit>=0.4.0']
-
-if sys.platform == "win32":
-    install_requires.append('oct2py>=2.4.2')
-else:
-    install_requires.append('oct2py>=1.2.0')
+                    'DynamicistToolKit>=0.4.0',
+                    'oct2py>=2.4.2']
 
 setup(name='GaitAnalysisToolKit',
       author='Jason K. Moore',
@@ -49,8 +45,9 @@ setup(name='GaitAnalysisToolKit',
       license='LICENSE.txt',
       packages=find_packages(),
       install_requires=install_requires,
-      extras_require={'doc': ['sphinx>=1.1.3',
-                              'numpydoc>=0.4'],
+      extras_require={'doc': ['sphinx>=1.2.2',
+                              'numpydoc>=0.4',
+                              'mock>=1.0.1'],
                       },
       scripts=['bin/dflowdata'],
       # The following ensures that any of these files are installed to the
@@ -58,7 +55,7 @@ setup(name='GaitAnalysisToolKit',
       package_data={'gaitanalysis': octave_rel_paths,
                     'gaitanalysis.tests': [join('data', glob)
                               for glob in ['*.txt', '*.csv', '*.yml']]},
-      tests_require=['nose>1.3.0'],
+      tests_require=['nose>1.3.1'],
       test_suite='nose.collector',
       long_description=open('README.rst').read(),
       classifiers=[

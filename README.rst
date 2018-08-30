@@ -71,14 +71,14 @@ http://www.scipy.org/stackspec.html.
 Supported versions:
 
 - python >= 2.7
-- numpy >= 1.6.1
-- scipy >= 0.9.0
-- matplotlib >= 1.1.0
-- tables >= 2.3.1
-- pandas >= 0.12.0
+- numpy >= 1.8.2
+- scipy >= 0.13.3
+- matplotlib >= 1.3.1
+- tables >= 3.1.1
+- pandas >= 0.13.1
 - pyyaml >= 3.10
 - DynamicistToolKit >= 0.4.0
-- oct2py >= 1.2.0 (>=2.4.2 is required for Octave>=3.8 on Windows)
+- oct2py >= 2.4.2
 - octave >= 3.8.1
 
 We recommend installing Anaconda_ for users in our lab to get all of the
@@ -154,13 +154,13 @@ Octave is installed. For example,
 
 The core dependencies can be installed with conda in a conda environment::
 
-   $ conda create -n gait python=2.7 pip numpy scipy matplotlib pytables pandas pyyaml nose sphinx
+   $ conda create -n gait python=2.7 pip numpy scipy matplotlib pytables pandas pyyaml nose sphinx numpydoc oct2py mock
    $ source activate gait
 
 And the dependencies which do not have conda packages can be installed into the
 environment with pip::
 
-   (gait)$ pip install DynamicistToolKit oct2py
+   (gait)$ pip install DynamicistToolKit
 
 Tests
 =====
@@ -201,6 +201,8 @@ Release Notes
 0.2.0
 -----
 
+- Minimum dependencies bumped to Ubuntu 14.04 LTS versions and tests run on
+  latest conda forge packages as of 2018/08/30. [PR `#140`_]
 - The minimum version of the required dependency, DynamicistToolKit, was bumped
   to 0.4.0. [PR `#134`_]
 - Reworked the DFlowData class so that interpolation and resampling is based on
@@ -209,6 +211,7 @@ Release Notes
 
 .. _#134: https://github.com/csu-hmc/GaitAnalysisToolKit/pull/134
 .. _#135: https://github.com/csu-hmc/GaitAnalysisToolKit/pull/135
+.. _#140: https://github.com/csu-hmc/GaitAnalysisToolKit/pull/140
 
 0.1.3
 -----
