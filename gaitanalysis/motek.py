@@ -1209,17 +1209,25 @@ class DFlowData(object):
             y_inertial = np.zeros(np.shape(y_prime))
             z_inertial = np.zeros(np.shape(z_prime))
 
-            for row, world in enumerate([x_inertial, y_inertial, z_inertial]):
-                for col, local in enumerate([x_prime, y_prime, z_prime]):
-                    world += orientation[row,col] * local
+            for col, local in enumerate([x_prime, y_prime, z_prime]):
+                x_inertial += orientation[0, col] * local
+
+            for col, local in enumerate([x_prime, y_prime, z_prime]):
+                y_inertial += orientation[1, col] * local
+
+            for col, local in enumerate([x_prime, y_prime, z_prime]):
+                z_inertial += orientation[2, col] * local
 
             return x_inertial, y_inertial, z_inertial
 
         for sensor, rot_matrix in self.meta['trial']['sensor-orientation'].iteritems():
-            data_frame[sensor + '_AccX'], data_frame[sensor + '_AccY'], \
-                data_frame[sensor + '_AccZ'] = orient_accelerometer(
-                        np.array(rot_matrix), data_frame[sensor + '_AccX'],
-                        data_frame[sensor + '_AccY'], data_frame[sensor + '_AccZ'])
+            ax, ay, az = orient_accelerometer(np.array(rot_matrix),
+                                              data_frame[sensor + '_AccX'],
+                                              data_frame[sensor + '_AccY'],
+                                              data_frame[sensor + '_AccZ'])
+            data_frame[sensor + '_AccX'] = ax
+            data_frame[sensor + '_AccY'] = ay
+            data_frame[sensor + '_AccZ'] = az
 
         return data_frame
 
