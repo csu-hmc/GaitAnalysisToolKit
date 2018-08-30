@@ -8,7 +8,7 @@ env:
 before_install:
   - if [[ $DEP_VERSIONS == "oldest" ]]; then
       sudo apt-get install -y -qq python-pip python-setuptools python-numpy python-scipy python-matplotlib python-tables python-nose python-coverage python-pandas python-sphinx python-mock python-numpydoc python-yaml;
-      pip install oct2py==2.4.2 DynamicistToolKit==0.3.5;
+      pip install --no-deps oct2py==2.4.2 DynamicistToolKit==0.3.5;
     elif [[ $DEP_VERSIONS == "latest" ]]; then
       MINICONDA_URL="https://repo.continuum.io/miniconda";
       MINICONDA_FILE="Miniconda3-latest-Linux-x86_64.sh";
