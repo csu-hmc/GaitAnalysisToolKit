@@ -101,7 +101,7 @@ function [angles, velocities, moments, forces] = leg2d(times, mocapdata, fpdata,
 		else
 			mocap_f(:,columns) = interp1q(validtimes, xf, times);		% resample filtered signal to original time stamps
 			mocap_d(:,columns) = interp1q(validtimes, xd, times);		% resample first derivative to original time stamps
-			mocap_dd(:,columns) = interplq1(validtimes, xdd, times);		% resample second derivative to original time stamps
+			mocap_dd(:,columns) = interp1q(validtimes, xdd, times);		% resample second derivative to original time stamps
                 end
 	end
 
