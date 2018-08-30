@@ -11,7 +11,7 @@ dependencies:
   - pandas =0.15.*
   - pyyaml =3.11
   - dynamicisttoolkit =0.3.*
-  - oct2py =2.4.*
+  - oct2py =3.5.*
   - nose
   - sphinx
   - coverage
