@@ -1,6 +1,7 @@
 name: gaitanalysis-dev-oldest
 channels:
   - conda-forge
+  - moorepants
   - defaults
 dependencies:
   - python =2.7.*
