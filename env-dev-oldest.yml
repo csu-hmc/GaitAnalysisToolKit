@@ -16,3 +16,4 @@ dependencies:
   - sphinx
   - coverage
   - mock
+  - numpydoc
