@@ -30,6 +30,7 @@ install:
       python setup.py install;
     fi
 before_script:
+  - python --version
   - octave --version
   - if [[ $DEP_VERSIONS == "oldest" ]]; then
       pip freeze;
