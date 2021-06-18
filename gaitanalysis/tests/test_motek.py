@@ -3,7 +3,6 @@
 
 # builtin
 import os
-from time import strptime
 from distutils.version import LooseVersion
 from random import sample, choice
 
@@ -123,7 +122,7 @@ class TestMissingMarkerIdentfier:
 
         identifier = \
             MissingMarkerIdentifier(self.with_constant[marker_columns])
-        assert_raises(StandardError, identifier.statistics)
+        assert_raises(AttributeError, identifier.statistics)
 
 
 class TestSplineInterpolateOverMissing:
@@ -322,7 +321,7 @@ class TestDFlowData():
                                    'Sitting', 'Standing', 'Relaxing']
 
     meta_data = {'trial': {'id': 5,
-                           'datetime': strptime('2013-10-03', "%Y-%m-%d"),
+                           'datetime': '2013-10-03',
                            'notes': 'All about this trial.',
                            'nominal-speed': 5.0,
                            'nominal-speed-units': 'meters per second',
@@ -581,7 +580,8 @@ class TestDFlowData():
 
         time = self.record_data_frame['Time']
 
-        self.n_event_times = sorted(sample(time, self.number_of_events))
+        self.n_event_times = sorted(sample(time.values.tolist(),
+                                           self.number_of_events))
         event_letters = self.possible_event_names[:self.number_of_events]
         self.event_times = dict(zip(event_letters, self.n_event_times))
 
@@ -760,9 +760,9 @@ class TestDFlowData():
         hbm_lab, hbm_i, non_hbm_i = dflow_data._hbm_column_labels(all_labels)
 
         assert self.dflow_hbm_labels == hbm_lab
-        assert hbm_i == range(len(self.mocap_labels_without_hbm),
-                              len(self.mocap_labels_with_hbm))
-        assert non_hbm_i == range(len(self.mocap_labels_without_hbm))
+        assert hbm_i == list(range(len(self.mocap_labels_without_hbm),
+                              len(self.mocap_labels_with_hbm)))
+        assert non_hbm_i == list(range(len(self.mocap_labels_without_hbm)))
 
     def test_analog_channel_labels(self):
         dflow_data = DFlowData(self.path_to_mocap_data_file)

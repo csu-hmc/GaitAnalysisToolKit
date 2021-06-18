@@ -177,8 +177,8 @@ class TestGaitData():
         # Test for force plate version
         gait_data = GaitData(self.data_frame)
 
-        min_idx = len(self.data_frame) / 3
-        max_idx = 2*len(self.data_frame) / 3
+        min_idx = len(self.data_frame) // 3
+        max_idx = 2*len(self.data_frame) // 3
 
         min_time = self.data_frame.index.values.astype(float)[min_idx]
         max_time = self.data_frame.index.values.astype(float)[max_idx]

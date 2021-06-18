@@ -79,7 +79,7 @@ class SimpleControlSolver(object):
         self.controls = controls
 
         if validation_data is None:
-            num_gait_cycles = data.shape[0] / 2
+            num_gait_cycles = data.shape[0] // 2
             self.identification_data = data.iloc[:num_gait_cycles]
             self.validation_data = data.iloc[num_gait_cycles:]
         else:
