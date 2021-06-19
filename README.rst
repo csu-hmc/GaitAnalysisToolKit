@@ -63,19 +63,18 @@ Several Octave routines are included in the ``gaitanalysis/octave`` directory.
 Installation
 ============
 
-You will need Python 2.7 and setuptools to install the packages. Its best to
-install the dependencies first (NumPy, SciPy, matplotlib, Pandas, PyTables).
-The SciPy Stack instructions are helpful for this:
-http://www.scipy.org/stackspec.html.
+You will need Python 2.7 or 3.7+ and setuptools to install the packages. Its
+best to install the dependencies first (NumPy, SciPy, matplotlib, Pandas,
+PyTables).
 
 Supported versions:
 
-- python >= 2.7
+- python >= 2.7 or >= 3.7
 - numpy >= 1.8.2
 - scipy >= 0.13.3
 - matplotlib >= 1.3.1
 - tables >= 3.1.1
-- pandas >= 0.13.1
+- pandas >= 0.13.1, <= 0.24.0
 - pyyaml >= 3.10
 - DynamicistToolKit >= 0.4.0
 - oct2py >= 2.4.2
@@ -201,6 +200,7 @@ Release Notes
 0.2.0
 -----
 
+- Support Python 3. [PR `#149`_]
 - Minimum dependencies bumped to Ubuntu 14.04 LTS versions and tests run on
   latest conda forge packages as of 2018/08/30. [PR `#140`_]
 - The minimum version of the required dependency, DynamicistToolKit, was bumped
@@ -211,6 +211,7 @@ Release Notes
 - Added note and setup.py check about higher oct2py versions required for
   Windows.
 
+.. _#149: https://github.com/csu-hmc/GaitAnalysisToolKit/pull/149
 .. _#134: https://github.com/csu-hmc/GaitAnalysisToolKit/pull/134
 .. _#135: https://github.com/csu-hmc/GaitAnalysisToolKit/pull/135
 .. _#140: https://github.com/csu-hmc/GaitAnalysisToolKit/pull/140

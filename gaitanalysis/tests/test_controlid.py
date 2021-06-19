@@ -32,7 +32,7 @@ class TestSimpleControlSolver():
         self.p = len(self.sensors)
         self.q = len(self.controls)
         self.r = 10
-        self.m = self.r / 2
+        self.m = self.r // 2
 
         self.gain_inclusion_matrix = np.array(self.q * [self.p * [True]])
         self.gain_inclusion_matrix[0, 1] = False

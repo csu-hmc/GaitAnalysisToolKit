@@ -64,7 +64,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'GaitAnalysisToolKit'
-copyright = u'2013, Jason K. Moore'
+copyright = u'2013-2021, Jason K. Moore'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

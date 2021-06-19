@@ -2,17 +2,18 @@ name: gaitanalysis-dev-latest
 channels:
   - conda-forge
 dependencies:
-  - python =2.7.*
-  - numpy
-  - scipy
-  - matplotlib
-  - pytables
-  - pandas
-  - pyyaml
-  - dynamicisttoolkit
-  - oct2py
-  - nose
-  - sphinx
   - coverage
+  - dynamicisttoolkit
+  - ipython
+  - matplotlib
   - mock
+  - nose
+  - numpy
   - numpydoc
+  - oct2py
+  - pandas <0.24
+  - pytables
+  - python
+  - pyyaml
+  - scipy
+  - sphinx

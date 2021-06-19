@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # standard library
+from __future__ import division
 import re
 import os
 from distutils.version import LooseVersion
@@ -190,7 +191,7 @@ class MissingMarkerIdentifier(object):
         try:
             self.columns
         except AttributeError:
-            raise StandardError("You must run the `identify()` method " +
+            raise AttributeError("You must run the `identify()` method " +
                                 "before computing the statistics.")
 
         df = self.data_frame[self.columns]
@@ -324,9 +325,10 @@ class DFlowData(object):
                       'rfoot', 'rtoes']
 
     rotation_suffixes = ['.Rot' + c for c in ['X', 'Y', 'Z']]
-    segment_labels = [_segment + _suffix for _segment in dflow_segments for
-                      _suffix in marker_coordinate_suffixes +
-                      rotation_suffixes]
+    segment_labels = []
+    for _segment in dflow_segments:
+        for _suffix in marker_coordinate_suffixes + rotation_suffixes:
+            segment_labels.append(_segment + _suffix)
 
     # TODO: These should be stored in the meta data for each trial because
     # the names could theorectically change, as they are selected by the
@@ -771,7 +773,8 @@ class DFlowData(object):
             '.Anlg': 'Sensor' + str(i+1).zfill(2) + '_' +
             signal for i in range(num_sensors) for j,signal in enumerate(signals)}
 
-        channel_names = dict(force_channels.items() + sensor_channels.items())
+        channel_names = dict(tuple(force_channels.items()) +
+                             tuple(sensor_channels.items()))
 
         # update labels from meta file
         try:
@@ -1220,7 +1223,7 @@ class DFlowData(object):
 
             return x_inertial, y_inertial, z_inertial
 
-        for sensor, rot_matrix in self.meta['trial']['sensor-orientation'].iteritems():
+        for sensor, rot_matrix in self.meta['trial']['sensor-orientation'].items():
             ax, ay, az = orient_accelerometer(np.array(rot_matrix),
                                               data_frame[sensor + '_AccX'],
                                               data_frame[sensor + '_AccY'],
