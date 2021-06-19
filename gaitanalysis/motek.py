@@ -406,7 +406,7 @@ class DFlowData(object):
         optional meta data file."""
 
         with open(self.meta_yml_path, 'r') as f:
-            meta = yaml.load(f, Loader=yaml.FullLoader)
+            meta = yaml.load(f)
 
         return meta
 
