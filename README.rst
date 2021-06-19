@@ -65,8 +65,7 @@ Installation
 
 You will need Python 2.7 or 3.7+ and setuptools to install the packages. Its
 best to install the dependencies first (NumPy, SciPy, matplotlib, Pandas,
-PyTables).  The SciPy Stack instructions are helpful for this:
-http://www.scipy.org/stackspec.html.
+PyTables).
 
 Supported versions:
 
@@ -75,7 +74,7 @@ Supported versions:
 - scipy >= 0.13.3
 - matplotlib >= 1.3.1
 - tables >= 3.1.1
-- pandas >= 0.13.1
+- pandas >= 0.13.1, <= 0.24.0
 - pyyaml >= 3.10
 - DynamicistToolKit >= 0.4.0
 - oct2py >= 2.4.2
