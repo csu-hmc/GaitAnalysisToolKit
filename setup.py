@@ -1,16 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
 from os.path import join
 
 from setuptools import setup, find_packages
 
 exec(open('gaitanalysis/version.py').read())
 
-description = \
-    """Various tools for gait analysis used at the Cleveland State
-University Human Motion and Control Lab."""
+description = ("Various tools for gait analysis used at the Cleveland State "
+               "University Human Motion and Control Lab.")
 
 octave_sub_dirs = ['2d_inverse_dynamics',
                    join('2d_inverse_dynamics', 'test'),
@@ -31,7 +29,7 @@ install_requires = ['numpy>=1.8.2',
                     'scipy>=0.13.3',
                     'matplotlib>=1.3.1',
                     'tables>=3.1.1',
-                    'pandas>=0.13.1',
+                    'pandas>=0.13.1,<0.24',
                     'pyyaml>=3.10',
                     'DynamicistToolKit>=0.4.0',
                     'oct2py>=2.4.2']
@@ -53,8 +51,8 @@ setup(name='GaitAnalysisToolKit',
       # The following ensures that any of these files are installed to the
       # system location.
       package_data={'gaitanalysis': octave_rel_paths,
-                    'gaitanalysis.tests': [join('data', glob)
-                              for glob in ['*.txt', '*.csv', '*.yml']]},
+                    'gaitanalysis.tests': [join('data', glob) for glob in
+                                           ['*.txt', '*.csv', '*.yml']]},
       tests_require=['nose>1.3.1'],
       test_suite='nose.collector',
       long_description=open('README.rst').read(),
