@@ -2,17 +2,18 @@
 # -*- coding: utf-8 -*-
 
 # standard library
-import os
+from collections import namedtuple
+import warnings
 
 # external libraries
 from pkg_resources import parse_version
 import numpy as np
 from scipy.integrate import simps
+from scipy.interpolate import interp1d
+from scipy.signal import firwin, filtfilt
 import matplotlib.pyplot as plt
 import pandas
 from dtk import process
-import oct2py
-from oct2py import octave
 
 # local
 from .utils import _percent_formatter
@@ -81,7 +82,7 @@ def find_constant_speed(time, speed, plot=False, filter_cutoff=1.0):
 
 
 def interpolate(data_frame, time):
-    """Returns a data frame with a index based on the provided time
+    """Returns a new data frame with a index based on the provided time
     array and linear interpolation.
 
     Parameters
@@ -101,21 +102,14 @@ def interpolate(data_frame, time):
 
     """
 
-    total_index = np.sort(np.hstack((data_frame.index.values, time)))
-    reindexed_data_frame = data_frame.reindex(total_index)
-    interpolated_data_frame = \
-        reindexed_data_frame.apply(pandas.Series.interpolate,
-                                   method='values').loc[time]
+    column_names = data_frame.columns
+    old_time = data_frame.index.values
+    vals = data_frame.values
 
-    # If the first or last value of a series is NA then the interpolate
-    # function leaves it as an NA value, so use backfill to take care of
-    # those.
-    interpolated_data_frame = \
-        interpolated_data_frame.fillna(method='backfill')
-    # Because the time vector may have matching indices as the original
-    # index (i.e. always the zero indice), drop any duplicates so the len()
-    # stays consistent
-    return interpolated_data_frame.drop_duplicates()
+    f = interp1d(old_time, vals, axis=0)
+    new_vals = f(time)
+
+    return pandas.DataFrame(new_vals, index=time, columns=column_names)
 
 
 class GaitData(object):
@@ -147,6 +141,34 @@ class GaitData(object):
         else:
             f.close()
             self.load(data)
+
+    def _leg2d(self, time, marker_pos, normalized_force_plate_values,
+               cutoff, sample_rate):
+        """This method effectively does the same thing that the Octave
+        routine does."""
+
+        # differentiate to get the marker velocities and accelerations
+        marker_vel = process.derivative(time, marker_pos,
+                                        method='combination')
+        marker_acc = process.derivative(time, marker_vel,
+                                        method='combination')
+
+        # filter all the input data with the same filter
+        marker_pos = process.butterworth(marker_pos, cutoff, sample_rate,
+                                         axis=0)
+        marker_vel = process.butterworth(marker_vel, cutoff, sample_rate,
+                                         axis=0)
+        marker_acc = process.butterworth(marker_acc, cutoff, sample_rate,
+                                         axis=0)
+        force_array = process.butterworth(normalized_force_plate_values,
+                                          cutoff, sample_rate, axis=0)
+
+        # compute the inverse dynamics
+        inv_dyn = lower_extremity_2d_inverse_dynamics
+        dynamics = inv_dyn(time, marker_pos, marker_vel, marker_acc,
+                           force_array)
+
+        return dynamics
 
     def inverse_dynamics_2d(self, left_leg_markers, right_leg_markers,
                             left_leg_forces, right_leg_forces, body_mass,
@@ -209,16 +231,9 @@ class GaitData(object):
         the inverse dynamics. You should pass in unfiltered data.
 
         """
-        this_files_dir = os.path.split(__file__)[0]
-        m_file_directory = os.path.abspath(os.path.join(this_files_dir,
-                                                        'octave',
-                                                        '2d_inverse_dynamics'))
-        octave.addpath(m_file_directory)
-
-        options = {'freq': low_pass_cutoff}
 
         time = self.data.index.values.astype(float)
-        time = time.reshape((len(time), 1))  # octave wants a column vector
+        sample_rate = 1.0 / np.mean(np.diff(time))
 
         marker_sets = [left_leg_markers, right_leg_markers]
         force_sets = [left_leg_forces, right_leg_forces]
@@ -232,23 +247,11 @@ class GaitData(object):
         for side_label, markers, forces in zip(side_labels, marker_sets,
                                                force_sets):
 
-            marker_array = self.data[markers].values.copy()
-            normalized_force_array = \
-                self.data[forces].values.copy() / body_mass
+            marker_vals = self.data[markers].values.copy()
+            force_vals = self.data[forces].values.copy() / body_mass
 
-            # oct2py doesn't allow multiple outputs to be stored in a tuple
-            # like python, so you have to output each variable
-            # independently
-            if parse_version(oct2py.__version__) >= parse_version('4.0'):
-                angles, velocities, moments, forces = \
-                    octave.leg2d(time, marker_array, normalized_force_array,
-                                 options, nout=4)
-            else:
-                angles, velocities, moments, forces = \
-                    octave.leg2d(time, marker_array, normalized_force_array,
-                                 options)
-
-            dynamics = angles, velocities, moments, forces
+            dynamics = self._leg2d(time, marker_vals, force_vals,
+                                   low_pass_cutoff, sample_rate)
 
             fours = zip(dynamics, dynamic_labels, scale_factors)
 
@@ -361,12 +364,11 @@ class GaitData(object):
         else:
             raise ValueError('min_time out of range.')
 
-
         if method is not 'accel' and method is not 'force':
             raise ValueError('{} is not a valid method'.format(method))
 
-        func = {'force' : gait_landmarks_from_grf,
-                'accel' : gait_landmarks_from_accel}
+        func = {'force': gait_landmarks_from_grf,
+                'accel': gait_landmarks_from_accel}
 
         right_strikes, left_strikes, right_offs, left_offs = \
             func[method](time[self.min_idx:self.max_idx],
@@ -404,7 +406,6 @@ class GaitData(object):
                                 num_cycles_to_plot=num_cycles_to_plot)
 
         return right_strikes, left_strikes, right_offs, left_offs
-
 
     def plot_landmarks(self, col_names, side, event='both', index=0,
                        window=None, num_cycles_to_plot=None,
@@ -648,7 +649,7 @@ class GaitData(object):
         gait_cycle_stats = {'Number of Samples': [],
                             'Stride Duration': [],
                             'Stride Frequency': [],
-                           }
+                            }
 
         if belt_speed_column is not None:
             gait_cycle_stats['Stride Length'] = []
@@ -720,6 +721,42 @@ class GaitData(object):
                 process.derivative(self.data.index.values.astype(float),
                                    self.data[col_name].values,
                                    method='combination')
+
+    def low_pass_filter(self, col_names, cutoff, new_col_names=None,
+                        order=2):
+        """Low pass filters the specified columns with a Butterworth filter.
+
+        Parameters
+        ==========
+        col_names : list of strings
+            The column names for the time series which should be numerically
+            time differentiated.
+        cutoff : float
+            The desired low pass cutoff frequency in Hertz.
+        new_col_names : list of strings, optional
+            The desired new column name(s) for the filtered series. If None,
+            then a default name of `Filtered <origin column name>` will be
+            used.
+        order : int
+            The order of the Butterworth filter.
+
+        """
+
+        if new_col_names is None:
+            new_col_names = ['Filtered {}'.format(c) for c in col_names]
+
+        time = self.data.index.values.astype(float)
+        sample_rate = 1.0 / np.mean(np.diff(time))
+
+        filtered_data = process.butterworth(self.data[col_names].values,
+                                            cutoff, sample_rate,
+                                            order=order, axis=0)
+
+        # TODO : Ideally these could be added to the DataFrame in one
+        # command.
+
+        for i, col in enumerate(new_col_names):
+            self.data[col] = filtered_data[:, i]
 
     def save(self, filename):
         """Saves data to disk via HDF5 (PyTables).
@@ -850,6 +887,7 @@ def gait_landmarks_from_grf(time, right_grf, left_grf,
 
     return right_foot_strikes, left_foot_strikes, right_toe_offs, left_toe_offs
 
+
 def gait_landmarks_from_accel(time, right_accel, left_accel, threshold=0.33, **kwargs):
     """
     Obtain right and left foot strikes from the time series data of accelerometers placed on the heel.
@@ -883,18 +921,16 @@ def gait_landmarks_from_accel(time, right_accel, left_accel, threshold=0.33, **k
     # ----------------
 
     def filter(data):
-        from scipy.signal import blackman, firwin, filtfilt
 
         a = np.array([1])
 
         # 10 Hz highpass
-        n = 127; # filter order
-        Wn = 10 / (sample_rate/2) # cut-off frequency
-        window = blackman(n)
+        n = 127  # filter order
+        Wn = 10.0 / (sample_rate / 2)  # cut-off frequency
         b = firwin(n, Wn, window='blackman', pass_zero=False)
         data = filtfilt(b, a, data)
 
-        data = abs(data) # rectify signal
+        data = abs(data)  # rectify signal
 
         # 5 Hz lowpass
         Wn = 5 / (sample_rate/2)
@@ -912,7 +948,7 @@ def gait_landmarks_from_accel(time, right_accel, left_accel, threshold=0.33, **k
 
         peaks = []
         for i, spike in enumerate(ddx < 0):
-            if spike == True:
+            if spike:
                 peaks.append(i)
 
         peaks = peaks[::2]
@@ -1043,3 +1079,281 @@ def plot_gait_cycles(gait_cycles, *col_names, **kwargs):
     ax.set_xlabel('Percent of Gait Cycle [%]')
 
     return axes
+
+
+def lower_extremity_2d_inverse_dynamics(time, marker_pos, marker_vel,
+                                        marker_acc, force_plate_values,
+                                        g=9.81):
+    """Returns the 2D inverse dynamics of a single lower limb.
+
+    Parameters
+    ==========
+    time: array_like, shape(N,)
+        Time stamps for the marker and force plate data in seconds.
+    marker_pos: array_like, shape(N, 12)
+        The X and Y coordinates of the six markers in meters given as
+        alternating columns: [X0, Y0, X1, Y1, ..., X5, Y5].
+    marker_vel: array_like, shape(N, 12)
+        The rate of change of the X and Y coordinates of the six markers in
+        meters per second.
+    marker_acc: array_like, shape(N, 12)
+        The rate of change of the X and Y velocities of the six markers in
+        meters per second per second.
+    force_plate_values: array_like, shape(N, 3)
+        Normalized loads applied to foot [Fx, Fy, Mz] in N/kg (normalized to
+        body mass).
+    g : float
+        Acceleration due to gravity in meters per second per second.
+
+    Returns
+    =======
+    joint_angles: ndarray, shape(N, 3)
+        Joint angles in three joints: hip, knee, ankle in radians.
+    joint_angular_rates: ndarray, shape(N, 3)
+        Angular velocities in three joints: hip, knee, ankle in radians per
+        second.
+    joint_torques: ndarray, shape(N, 3)
+        Torques in three joints: hip, knee, ankle in  Nm per kg body mass.
+    joint_forces:  (Nsamples x 6)
+        Forces (Fx, Fy) in three joints, (N per kg body mass)
+
+    Notes
+    =====
+
+    Coordinate system:
+      X is forward (direction of walking), Y is up
+
+    Markers:
+      0: Shoulder
+      1: Greater trochanter
+      2: Lateral epicondyle of knee
+      3: Lateral malleolus
+      4: Heel (placed at same height as marker 6)
+      5: Head of 5th metatarsal
+
+    Joints:
+      hip, knee, ankle
+      sign convention for angles and moments: hip flexion, knee flexion,
+      ankle plantarflexion are positive
+
+    References
+    ==========
+
+    Method:
+       Winter, DA (2005) Biomechanics of Human Movement.
+
+
+    """
+
+    # TODO : Remove the time variable, it is not needed.
+
+    num_markers = 6
+    num_coordinates = 2 * num_markers
+    num_force_plate_channels = 3
+    num_segments = 4
+    num_samples = time.shape[0]
+
+    # define the body segments with these properties:
+    # - proximal marker
+    # - distal marker
+    # - joint marker (at proximal end)
+    # - mass as fraction of body mass (from Winter book)
+    # - center of mass as fraction of length (from Winter book)
+    # - radius of gyration as fraction of length (from Winter book)
+    # - +1(-1) if positive angle/moment in prox, joint corresponds to
+    #   counterclockwise(clockwise) rotation of segment
+
+    # TODO : Create a way for the user to pass in the body segment values.
+
+    Segment = namedtuple('Segment', ['name',
+                                     'num',
+                                     'prox_marker_idx',
+                                     'dist_marker_idx',
+                                     'prox_joint_marker_idx',
+                                     'normalized_mass',
+                                     'mass_center_fraction',
+                                     'radius_of_gyration_fraction',
+                                     'sign'])
+
+    segments = [Segment('torso', 0, 0, 1, np.nan, np.nan, np.nan, np.nan, np.nan),
+                Segment('thigh', 1, 1, 2, 1, 0.1000, 0.433, 0.323,  1),
+                Segment('shank', 2, 2, 3, 2, 0.0465, 0.433, 0.302, -1),
+                Segment('foot',  3, 4, 5, 3, 0.0145, 0.500, 0.475, -1)]
+
+    if time.shape[0] != marker_pos.shape[0]:
+        msg = ('The number of samples in marker data is not the same as '
+               'number of time stamps.')
+        raise ValueError(msg)
+
+    if time.shape[0] != marker_vel.shape[0]:
+        msg = ('The number of samples in marker data is not the same as '
+               'number of time stamps.')
+        raise ValueError(msg)
+
+    if time.shape[0] != marker_acc.shape[0]:
+        msg = ('The number of samples in marker data is not the same as '
+               'number of time stamps.')
+        raise ValueError(msg)
+
+    if time.shape[0] != force_plate_values.shape[0]:
+        msg = ('The number of samples in force plate data is not the same as '
+               'number of time stamps.')
+        raise ValueError(msg)
+
+    if marker_pos.shape[1] != num_coordinates:
+        msg = 'The number of columns in mocap data is not correct.'
+        raise ValueError(msg)
+
+    if force_plate_values.shape[1] != num_force_plate_channels:
+        msg = 'The number of columns in force plate data is not correct.'
+        raise ValueError(msg)
+
+    seg_lengths = np.zeros(num_segments)
+
+    seg_com_x_pos = np.zeros((num_samples, num_segments))
+    seg_com_y_pos = np.zeros((num_samples, num_segments))
+    seg_com_x_acc = np.zeros((num_samples, num_segments))
+    seg_com_y_acc = np.zeros((num_samples, num_segments))
+
+    seg_theta = np.zeros((num_samples, num_segments))
+    seg_omega = np.zeros((num_samples, num_segments))
+    seg_alpha = np.zeros((num_samples, num_segments))
+
+    for i, segment in enumerate(segments):
+
+        prox_x_idx = 2 * segment.prox_marker_idx
+        prox_y_idx = prox_x_idx + 1
+
+        prox_pos = marker_pos[:, prox_x_idx:prox_y_idx + 1]
+        prox_vel = marker_vel[:, prox_x_idx:prox_y_idx + 1]
+        prox_acc = marker_acc[:, prox_x_idx:prox_y_idx + 1]
+
+        dist_x_idx = 2 * segment.dist_marker_idx
+        dist_y_idx = dist_x_idx + 1
+
+        dist_pos = marker_pos[:, dist_x_idx:dist_y_idx + 1]
+        dist_vel = marker_vel[:, dist_x_idx:dist_y_idx + 1]
+        dist_acc = marker_acc[:, dist_x_idx:dist_y_idx + 1]
+
+        # vector R points from proximal to distal marker
+        R_pos = dist_pos - prox_pos
+        R_vel = dist_vel - prox_vel
+        R_acc = dist_acc - prox_acc
+
+        # calculate segment center of mass position and segment orientation
+        # angle, and 1st and 2nd derivatives
+
+        seg_com_pos = prox_pos + segment.mass_center_fraction * R_pos
+
+        seg_com_x_pos[:, i] = seg_com_pos[:, 0]
+        seg_com_y_pos[:, i] = seg_com_pos[:, 1]
+
+        seg_com_acc = prox_acc + segment.mass_center_fraction * R_acc
+
+        seg_com_x_acc[:, i] = seg_com_acc[:, 0]
+        seg_com_y_acc[:, i] = seg_com_acc[:, 1]
+
+        # orientation of the vector R, unwrap removes -pi to pi discontinuities
+        seg_theta[:, i] = np.unwrap(np.arctan2(R_pos[:, 1], R_pos[:, 0]))
+
+        # analytical time derivative of segment angle
+        seg_omega[:, i] = ((R_pos[:, 0] * R_vel[:, 1] -
+                            R_pos[:, 1] * R_vel[:, 0]) /
+                           (R_pos[:, 1]**2 + R_pos[:, 0]**2))
+
+        # analytical time derivative of segment angular velocity
+        a_0 = R_pos[:, 0] * R_acc[:, 1] - R_pos[:, 1] * R_acc[:, 0]
+        a_1 = R_pos[:, 0] * R_vel[:, 1] - R_pos[:, 1] * R_vel[:, 0]
+        a_2 = R_pos[:, 1] * R_vel[:, 1] + R_pos[:, 0] * R_vel[:, 0]
+        a_3 = R_pos[:, 1]**2 + R_pos[:, 0]**2
+
+        seg_alpha[:, i] = a_0 / a_3 - 2.0 * a_1 * a_2 / a_3**2
+
+        seg_length = np.sqrt(R_pos[:, 0]**2 + R_pos[:, 1]**2)
+        seg_lengths[i] = seg_length.mean()
+
+        if np.max(np.abs(seg_length - seg_lengths[i])) > 0.1:
+            msg = ('Error detected while processing segment {}\n'
+                   'Segment length changed by more than 0.1 meters')
+            with warnings.catch_warnings():
+                warnings.simplefilter('always')
+                warnings.warn(msg.format(i), Warning)
+
+    joint_angles = np.zeros((num_samples, num_segments - 1))
+    joint_angular_rates = np.zeros((num_samples, num_segments - 1))
+    joint_moments = np.zeros((num_samples, num_segments - 1))
+    joint_forces = np.zeros((num_samples, 2 * (num_segments - 1)))
+
+    # do the inverse dynamics, starting at the foot, but not for the torso
+    # segment
+    for segment in reversed(segments[1:]):
+
+        i = segment.num
+
+        # compute vectors P and D from center of mass to distal and proximal
+        # joint
+
+        prox_joint_x_idx = 2 * segment.prox_joint_marker_idx
+        prox_joint_y_idx = prox_joint_x_idx + 1
+
+        Px = marker_pos[:, prox_joint_x_idx] - seg_com_x_pos[:, i]
+        Py = marker_pos[:, prox_joint_y_idx] - seg_com_y_pos[:, i]
+
+        if segment.name == 'foot':
+            # for the last segment, distal joint is the force plate data,
+            # applied to foot at global origin
+
+            Dx = -seg_com_x_pos[:, i]
+            Dy = -seg_com_y_pos[:, i]
+
+            dist_force_x = force_plate_values[:, 0]
+            dist_force_y = force_plate_values[:, 1]
+            dist_moment = force_plate_values[:, 2]
+        else:
+            # The marker at the distal joint of this segment is the same as
+            # the marker at the proximal joint of next the segment.
+            dist_joint_x_idx = 2 * segments[i + 1].prox_joint_marker_idx
+            dist_joint_y_idx = dist_joint_x_idx + 1
+
+            Dx = marker_pos[:, dist_joint_x_idx] - seg_com_x_pos[:, i]
+            Dy = marker_pos[:, dist_joint_y_idx] - seg_com_y_pos[:, i]
+
+            # loads at the distal joint are the opposite of the proximal
+            # loads in the previous segment
+            dist_force_x = -prox_force_x
+            dist_force_y = -prox_force_y
+            dist_moment = -prox_moment
+
+        # solve force and moment at proximal joint from the Newton-Euler
+        # equations
+        mass = segment.normalized_mass
+
+        prox_force_x = mass * seg_com_x_acc[:, i] - dist_force_x
+        prox_force_y = mass * seg_com_y_acc[:, i] - dist_force_y + mass * g
+
+        radius_of_gyration = (segment.radius_of_gyration_fraction *
+                              seg_lengths[i])
+        inertia = mass * radius_of_gyration**2
+
+        prox_moment = (inertia * seg_alpha[:, i] - dist_moment
+                       - (Dx * dist_force_y - Dy * dist_force_x)
+                       - (Px * prox_force_y - Py * prox_force_x))
+
+        # and store proximal joint motions and loads in the output variables
+
+        # joint index (hip, knee, ankle) for the proximal joint of segment i
+        j = i - 1
+
+        joint_angles[:, j] = segment.sign * (seg_theta[:, i] -
+                                             seg_theta[:, i - 1])
+
+        joint_angular_rates[:, j] = segment.sign * (seg_omega[:, i] -
+                                                    seg_omega[:, i - 1])
+
+        joint_moments[:, j] = segment.sign * prox_moment
+
+        joint_forces[:, 2 * j] = prox_force_x
+
+        joint_forces[:, 2 * j - 1] = prox_force_y
+
+    return joint_angles, joint_angular_rates, joint_moments, joint_forces
