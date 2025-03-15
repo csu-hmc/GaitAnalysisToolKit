@@ -77,7 +77,7 @@ Supported versions:
 - pandas >= 0.13.1, <= 0.24.0
 - pyyaml >= 3.10
 - DynamicistToolKit >= 0.4.0
-- oct2py >= 2.4.2
+- oct2py >= 2.4.2, < 5.0
 - octave >= 3.8.1
 
 We recommend installing Anaconda_ for users in our lab to get all of the
