@@ -15,18 +15,12 @@ jobs:
     strategy:
       matrix:
         dependency-set: ["-oldest", "-latest"]
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["2.7", "3.7"]
         exclude:
           - dependency-set: "-oldest"
-            python-version: "3.9"
-          - dependency-set: "-oldest"
-            python-version: "3.10"
-          - dependency-set: "-oldest"
-            python-version: "3.11"
-          - dependency-set: "-oldest"
-            python-version: "3.12"
-          - dependency-set: "-oldest"
-            python-version: "3.13"
+            python-version: "3.7"
+          - dependency-set: "-latest"
+            python-version: "2.7"
     name: test
     steps:
       - uses: actions/checkout@v4
