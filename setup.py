@@ -32,7 +32,7 @@ install_requires = ['numpy>=1.8.2',
                     'pandas>=0.13.1,<0.24',
                     'pyyaml>=3.10',
                     'DynamicistToolKit>=0.4.0',
-                    'oct2py>=2.4.2']
+                    'oct2py>=2.4.2,5.0']
 
 setup(name='GaitAnalysisToolKit',
       author='Jason K. Moore',
