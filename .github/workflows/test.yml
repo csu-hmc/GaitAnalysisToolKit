@@ -19,6 +19,8 @@ jobs:
         exclude:
           - dependency-set: "-oldest"
             python-version: "3.7"
+          - dependency-set: "-oldest"
+            python-version: "2.7"
           - dependency-set: "-latest"
             python-version: "2.7"
     name: test
