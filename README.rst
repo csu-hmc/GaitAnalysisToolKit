@@ -62,13 +62,13 @@ Several Octave routines are included in the ``gaitanalysis/octave`` directory.
 Installation
 ============
 
-You will need Python 2.7 or 3.7+ and setuptools to install the packages. Its
+You will need Python 2.7 or 3.7 and setuptools to install the packages. Its
 best to install the dependencies first (NumPy, SciPy, matplotlib, Pandas,
 PyTables).
 
 Supported versions:
 
-- python >= 2.7 or >= 3.7
+- python 2.7 or 3.7
 - numpy >= 1.8.2
 - scipy >= 0.13.3
 - matplotlib >= 1.3.1
