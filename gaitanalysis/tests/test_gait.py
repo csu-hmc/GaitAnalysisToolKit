@@ -10,18 +10,13 @@ from numpy import testing
 import pandas
 from pandas.util.testing import assert_frame_equal
 from nose.tools import assert_raises
+from oct2py import octave
+from dtk.process import time_vector, butterworth, derivative
 
 # local
-from ..gait import find_constant_speed, interpolate, GaitData
-from dtk.process import time_vector
-
-# debugging
-try:
-    from IPython.core.debugger import Tracer
-except ImportError:
-    pass
-else:
-    set_trace = Tracer()
+from ..gait import (find_constant_speed, interpolate, GaitData,
+                    lower_extremity_2d_inverse_dynamics)
+from ..motek import spline_interpolate_over_missing
 
 
 def test_find_constant_speed():
@@ -39,10 +34,10 @@ def test_find_constant_speed():
 
 def test_interpolate():
 
-    df = pandas.DataFrame({'a': [np.nan, 3.0, 5.0, 7.0],
-                           'b': [5.0, np.nan, 9.0, 11.0],
+    df = pandas.DataFrame({'a': [2.0, 3.0, 5.0, 7.0],
+                           'b': [5.0, 8.0, 9.0, 11.0],
                            'c': [2.0, 4.0, 6.0, 8.0],
-                           'd': [0.5, 1.0, 1.5, np.nan]},
+                           'd': [0.5, 1.0, 1.5, 2.5]},
                           index=[0.0, 2.0, 4.0, 6.0])
 
     time = [0.0, 1.0, 3.0, 5.0]
@@ -52,10 +47,10 @@ def test_interpolate():
     # NOTE : pandas.Series.interpolate does not extrapolate (because
     # np.interp doesn't.
 
-    df_expected = pandas.DataFrame({'a': [4.0, 4.0, 4.0, 6.0],
-                                    'b': [5.0, 6.0, 8.0, 10.0],
+    df_expected = pandas.DataFrame({'a': [2.0, 2.5, 4.0, 6.0],
+                                    'b': [5.0, 6.5, 8.5, 10.0],
                                     'c': [2.0, 3.0, 5.0, 7.0],
-                                    'd': [0.5, 0.75, 1.25, 1.5]},
+                                    'd': [0.5, 0.75, 1.25, 2.0]},
                                    index=time)
 
     testing.assert_allclose(interpolated.values, df_expected.values)
@@ -218,8 +213,8 @@ class TestGaitData():
     def test_plot_landmarks(self):
         gait_data = GaitData(self.data_frame)
         gait_data.grf_landmarks('Right Vertical GRF',
-                                   'Left Vertical GRF',
-                                   threshold=self.threshold)
+                                'Left Vertical GRF',
+                                threshold=self.threshold)
         side = 'right'
         col_names = ['Right Vertical GRF','Right Knee Angle','Right Knee Moment']
         time = gait_data.data.index.values.astype(float)
@@ -297,18 +292,38 @@ class TestGaitData():
 
         gait_data = GaitData(self.data_frame)
         gait_data.grf_landmarks('Right Vertical GRF',
-                                   'Left Vertical GRF',
-                                   threshold=self.threshold)
+                                'Left Vertical GRF',
+                                threshold=self.threshold)
         gait_data.split_at('right')
 
         assert_raises(ValueError, gait_data.plot_gait_cycles)
+
+    def test_low_pass_filter(self):
+
+        gait_data = GaitData(self.data_frame)
+
+        cols = ['Right Knee Angle', 'Right Knee Moment']
+
+        gait_data.low_pass_filter(cols, 10.0)
+
+        fil_cols = ['Filtered {}'.format(c) for c in cols]
+
+        for c in fil_cols:
+            assert c in gait_data.data.columns
+
+        gait_data.low_pass_filter(cols, 10.0, new_col_names=['a', 'b'])
+
+        for c in ['a', 'b']:
+            assert c in gait_data.data.columns
+
+        gait_data.low_pass_filter(cols, 10.0, order=3)
 
     def test_save_load(self):
 
         gait_data = GaitData(self.data_frame)
         gait_data.grf_landmarks('Right Vertical GRF',
-                                   'Left Vertical GRF',
-                                   threshold=self.threshold)
+                                'Left Vertical GRF',
+                                threshold=self.threshold)
         gait_data.split_at('right')
 
         gait_data.save('some_data.h5')
@@ -336,3 +351,72 @@ class TestGaitData():
             pass
         else:
             os.remove('some_data.h5')
+
+
+def test_lower_extremity_2d_inverse_dynamics():
+
+    # This test ensures that the new fast Python version of the inverse
+    # dynamics algorithm gives the same results as the Octave version.
+
+    this_files_dir = os.path.split(__file__)[0]
+    rel_path_to_m_dir = os.path.join(this_files_dir, '..', 'octave',
+                                     '2d_inverse_dynamics')
+    m_file_directory = os.path.abspath(rel_path_to_m_dir)
+    m_test_directory = os.path.join(m_file_directory, 'test')
+    data_file_path = os.path.join(m_test_directory, 'rawdata.txt')
+
+    data = pandas.read_csv(data_file_path, sep="\t", na_values="NaN ",
+                           dtype=float)
+
+    time = data['% TimeStamp'].values
+    sample_rate = 1.0 / np.mean(np.diff(time))
+
+    filter_freq = 6.0
+
+    # interpolate
+    data = spline_interpolate_over_missing(data, '% TimeStamp')
+
+    # filter data (note this filters the TimeStamp too)
+    data[data.columns] = butterworth(data.values, filter_freq, sample_rate,
+                                     axis=0)
+
+    # differentiate marker data twice
+    marker_labels = ['RSHO.PosX',
+                     'RSHO.PosY',
+                     'RGTRO.PosX',
+                     'RGTRO.PosY',
+                     'RLEK.PosX',
+                     'RLEK.PosY',
+                     'RLM.PosX',
+                     'RLM.PosY',
+                     'RHEE.PosX',
+                     'RHEE.PosY',
+                     'RMT5.PosX',
+                     'RMT5.PosY']
+
+    marker_pos = data[marker_labels].values
+    marker_vel = derivative(time, marker_pos, method='combination')
+    marker_acc = derivative(time, marker_vel, method='combination')
+
+    force_plate_labels = ['FP2.ForX',
+                          'FP2.ForY',
+                          'FP2.MomZ']
+
+    force_plate_values = data[force_plate_labels].values
+
+    res = lower_extremity_2d_inverse_dynamics(time, marker_pos, marker_vel,
+                                              marker_acc,
+                                              force_plate_values)
+
+    octave.addpath(m_file_directory)
+
+    options = {'freq': filter_freq}
+
+    angles, velocities, moments, forces = \
+        octave.leg2d(time.reshape((len(time), 1)), marker_pos,
+                     force_plate_values, options)
+
+    expected_res = (angles, velocities, moments, forces)
+
+    for array, expected_array in zip(res, expected_res):
+        testing.assert_allclose(array, expected_array)
