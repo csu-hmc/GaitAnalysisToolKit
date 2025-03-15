@@ -15,10 +15,12 @@ jobs:
     strategy:
       matrix:
         dependency-set: ["-oldest", "-latest"]
-        python-version: ["2.7", "3.7"]
+        python-version: ["2.7", "3.7", "3.8"]
         exclude:
           - dependency-set: "-oldest"
             python-version: "3.7"
+          - dependency-set: "-oldest"
+            python-version: "3.8"
           - dependency-set: "-oldest"
             python-version: "2.7"
           - dependency-set: "-latest"
