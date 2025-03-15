@@ -9,8 +9,8 @@ dependencies:
   - mock
   - nose
   - numpy
-  - numpydoc
-  - oct2py
+  - numpydoc <1.6
+  - oct2py <5
   - pandas <0.24
   - pytables
   - python

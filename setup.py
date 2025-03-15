@@ -32,7 +32,7 @@ install_requires = ['numpy>=1.8.2',
                     'pandas>=0.13.1,<0.24',
                     'pyyaml>=3.10',
                     'DynamicistToolKit>=0.4.0',
-                    'oct2py>=2.4.2']
+                    'oct2py>=2.4.2,<5.0']
 
 setup(name='GaitAnalysisToolKit',
       author='Jason K. Moore',
@@ -44,7 +44,7 @@ setup(name='GaitAnalysisToolKit',
       packages=find_packages(),
       install_requires=install_requires,
       extras_require={'doc': ['sphinx>=1.2.2',
-                              'numpydoc>=0.4',
+                              'numpydoc>=0.4,<1.6',
                               'mock>=1.0.1'],
                       },
       scripts=['bin/dflowdata'],

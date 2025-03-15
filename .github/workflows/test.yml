@@ -1,0 +1,55 @@
+# based on https://github.com/mamba-org/provision-with-micromamba
+name: test
+on:
+  push:
+    branches: master
+  pull_request:
+    branches: master
+# cancels prior builds for this workflow when new commit is pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dependency-set: ["-oldest", "-latest"]
+        python-version: ["2.7", "3.7"]
+        exclude:
+          - dependency-set: "-oldest"
+            python-version: "3.7"
+          - dependency-set: "-oldest"
+            python-version: "2.7"
+          - dependency-set: "-latest"
+            python-version: "2.7"
+    name: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Conda environment
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: ${{ matrix.python-version }}
+          channels: conda-forge
+          environment-file: env-dev${{ matrix.dependency-set }}.yml
+      - name: install octave
+        shell: bash -l {0}
+        run: sudo apt-get install -y -qq octave
+      - name: run tests
+        shell: bash -l {0}
+        run: |
+          nosetests -v --with-coverage --cover-package=gaitanalysis
+      - name: build documentation
+        shell: bash -l {0}
+        run: |
+          conda info
+          conda list
+          cd docs
+          make html
+      - name: test installation
+        shell: bash -l {0}
+        run: |
+          conda info
+          python setup.py install
+          conda list
