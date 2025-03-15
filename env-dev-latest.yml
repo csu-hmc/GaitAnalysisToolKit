@@ -10,7 +10,7 @@ dependencies:
   - nose
   - numpy
   - numpydoc
-  - oct2py
+  - oct2py <5
   - pandas <0.24
   - pytables
   - python
