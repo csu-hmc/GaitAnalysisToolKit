@@ -1,0 +1,44 @@
+package:
+  name: gaitanalysistoolkit
+  version: "0.1.2"
+
+source:
+  fn: GaitAnalysisToolKit-0.1.2.tar.gz
+  url: https://pypi.python.org/packages/source/G/GaitAnalysisToolKit/GaitAnalysisToolKit-0.1.2.tar.gz
+  md5: 16a30b1d2ba9a3ed0a425c95ada6ad15
+
+requirements:
+  build:
+
+    - python >=2.7,<3
+    - setuptools
+    - numpy >=1.6.1
+    - scipy >=0.9.0
+    - matplotlib >=1.1.0
+    - pytables >=2.3.1
+    - pandas >=0.12.0
+    - pyyaml >=3.10
+    - dynamicisttoolkit >=0.3.5
+    - oct2py >=1.2.0
+
+  run:
+    - python >=2.7,<3
+    - numpy >=1.6.1
+    - scipy >=0.9.0
+    - matplotlib >=1.1.0
+    - pytables >=2.3.1
+    - pandas >=0.12.0
+    - pyyaml >=3.10
+    - dynamicisttoolkit >=0.3.5
+    - oct2py >=1.2.0
+
+test:
+  # Python imports
+  imports:
+    - gaitanalysis
+    - gaitanalysis.tests
+
+about:
+  home: http://github.com/csu-hmc/GaitAnalysisToolKit
+  license: LICENSE.txt
+  summary: 'Various tools for gait analysis used at the Cleveland State\nUniversity Human Motion and Control Lab.'
