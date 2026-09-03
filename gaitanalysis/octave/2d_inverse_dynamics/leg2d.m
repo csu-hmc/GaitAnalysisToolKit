@@ -94,7 +94,18 @@ function [angles, velocities, moments, forces] = leg2d(times, mocapdata, fpdata,
 		fprintf('Marker %d: %d samples are missing, longest gap is %d samples.\n', i, missing, maxmissing);
 		[xf, xd, xdd] = myfiltfilt(validtimes, d(validsamples,:), options.freq);
 		% Octave removed interp1q in version 4.2.
-		if ((str2num(oct_ver{1}) >= 4) && (str2num(oct_ver{2}) >= 2))
+		if (str2num(oct_ver{1}) >= 5)
+			use_new = 1;
+		elseif (str2num(oct_ver{1}) >= 4)
+			if (str2num(oct_ver{2}) >= 2)
+				use_new = 1;
+			else
+				use_new = 0;
+			end
+		else
+				use_new = 0;
+		end
+		if (use_new)
 			mocap_f(:,columns) = interp1(validtimes, xf, times);		% resample filtered signal to original time stamps
 			mocap_d(:,columns) = interp1(validtimes, xd, times);		% resample first derivative to original time stamps
 			mocap_dd(:,columns) = interp1(validtimes, xdd, times);		% resample second derivative to original time stamps
@@ -102,7 +113,7 @@ function [angles, velocities, moments, forces] = leg2d(times, mocapdata, fpdata,
 			mocap_f(:,columns) = interp1q(validtimes, xf, times);		% resample filtered signal to original time stamps
 			mocap_d(:,columns) = interp1q(validtimes, xd, times);		% resample first derivative to original time stamps
 			mocap_dd(:,columns) = interp1q(validtimes, xdd, times);		% resample second derivative to original time stamps
-                end
+		end
 	end
 
 	% do the low-pass filtering on the force plate data
